@@ -88,71 +88,91 @@ namespace CSTG.CodeAnalyzer
                     Projects = projectFiles
                 };
 
-                File.WriteAllText("ProjectsAndSolutions.json", JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented));
-            }
+                //File.WriteAllText("ProjectsAndSolutions.json", JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented));
 
-            var allDllFiles = Utility.RecursiveFileSearch(untouchedDir, extensions: new string[] { ".dll" }, skipDirs: new string[] { ".git" });
+                var allDllFiles = Utility.RecursiveFileSearch(untouchedDir, extensions: new string[] { ".dll" }, skipDirs: new string[] { ".git" });
 
-            foreach (var p in data.Projects)
-            {
-                var projectFolderDllFiles = allDllFiles.Where(f => f.FullName.StartsWith(p.File.Directory.FullName)).ToList();
-
-                foreach (var assRef in p.AssemblyReferences.Where(x=>!string.IsNullOrWhiteSpace(x.HintPath)))
+                foreach (var p in data.Projects)
                 {
-                    bool foundUsingHint = true;
-                    var fi = new FileInfo(Path.Combine(p.File.Directory.FullName, assRef.HintPath));
-                    System.Reflection.Assembly matchingAssembly = null;
-                    if (fi.Exists) try { matchingAssembly = System.Reflection.Assembly.LoadFile(fi.FullName); } catch { }
+                    var projectFolderDllFiles = allDllFiles.Where(f => f.FullName.StartsWith(p.File.Directory.FullName)).ToList();
 
-                    if (!fi.Exists)
+                    foreach (var assRef in p.AssemblyReferences.Where(x => !string.IsNullOrWhiteSpace(x.HintPath)))
                     {
-                        foundUsingHint = false;
+                        bool foundUsingHint = true;
+                        var fi = new FileInfo(Path.Combine(p.File.Directory.FullName, assRef.HintPath));
+                        System.Reflection.Assembly matchingAssembly = null;
+                        if (fi.Exists) try { matchingAssembly = System.Reflection.Assembly.LoadFile(fi.FullName); } catch { }
 
-                        var dllName = assRef.Name.EndsWith(".dll") ? assRef.Name : $"{assRef.Name}.dll";
+                        if (!fi.Exists)
+                        {
+                            foundUsingHint = false;
 
-                        //TODO: collect all of the matches, and then try to get the one with the closest version?
-                        var assemblies = projectFolderDllFiles
-                            .Where(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase))
-                            .Select(x =>
-                            {
-                                try { return System.Reflection.Assembly.LoadFile(x.FullName); } catch { return null; }
-                            }).Where(x => x != null).ToList();
-                        matchingAssembly = assemblies.Where(x => assRef.Version == null || x.GetName().Version == assRef.Version).FirstOrDefault();
-                        var lastOptionMatch = assemblies.FirstOrDefault();
-                        if (matchingAssembly == null) { 
-                            assemblies = allDllFiles
+                            var dllName = assRef.Name.EndsWith(".dll") ? assRef.Name : $"{assRef.Name}.dll";
+
+                            //TODO: collect all of the matches, and then try to get the one with the closest version?
+                            var assemblies = projectFolderDllFiles
                                 .Where(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase))
                                 .Select(x =>
                                 {
                                     try { return System.Reflection.Assembly.LoadFile(x.FullName); } catch { return null; }
                                 }).Where(x => x != null).ToList();
                             matchingAssembly = assemblies.Where(x => assRef.Version == null || x.GetName().Version == assRef.Version).FirstOrDefault();
-                            if (lastOptionMatch == null) lastOptionMatch = assemblies.FirstOrDefault();
+                            var lastOptionMatch = assemblies.FirstOrDefault();
+                            if (matchingAssembly == null)
+                            {
+                                assemblies = allDllFiles
+                                    .Where(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase))
+                                    .Select(x =>
+                                    {
+                                        try { return System.Reflection.Assembly.LoadFile(x.FullName); } catch { return null; }
+                                    }).Where(x => x != null).ToList();
+                                matchingAssembly = assemblies.Where(x => assRef.Version == null || x.GetName().Version == assRef.Version).FirstOrDefault();
+                                if (lastOptionMatch == null) lastOptionMatch = assemblies.FirstOrDefault();
+                            }
+                            matchingAssembly = matchingAssembly ?? lastOptionMatch;
+                            if (matchingAssembly == null)
+                            {
+                                fi = projectFolderDllFiles.FirstOrDefault(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase))
+                                    ?? allDllFiles.FirstOrDefault(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase));
+                            }
+                            else
+                            {
+                                fi = new FileInfo(matchingAssembly.Location);
+                            }
                         }
-                        matchingAssembly = matchingAssembly ?? lastOptionMatch;
-                        if (matchingAssembly == null)
-                        {
-                            fi = projectFolderDllFiles.FirstOrDefault(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase))
-                                ?? allDllFiles.FirstOrDefault(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase));
-                        } 
-                        else
-                        {
-                            fi = new FileInfo(matchingAssembly.Location);
-                        }
-                    }
 
-                    if (fi?.Exists ?? false)
-                    {
-                        assRef.FileLocation = new AssemblyReferenceFile
+                        if (fi?.Exists ?? false)
                         {
-                            File = fi,
-                            Version = matchingAssembly?.GetName().Version,
-                            HintIsValid = foundUsingHint
-                        };
+                            assRef.FileLocation = new AssemblyReferenceFile
+                            {
+                                File = fi,
+                                Version = matchingAssembly?.GetName().Version,
+                                HintIsValid = foundUsingHint
+                            };
+                        }
                     }
                 }
+                File.WriteAllText("ProjectsAndSolutions.json", JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented));
             }
-            File.WriteAllText("ProjectsAndSolutions.json", JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented));
+
+            foreach (var project in data.Projects)
+            {
+                Console.WriteLine("=========================================================================");
+                Console.WriteLine("== " + project.AssemblyName);
+                Console.WriteLine("=========================================================================");
+                foreach (var ar in project.AssemblyReferences.Where(x => !string.IsNullOrWhiteSpace(x.HintPath) && x.FileLocation == null))
+                {
+                    Console.WriteLine("MISSING:" + ar.Name);
+                }
+                Console.WriteLine("-------------------------------------------------------------------------");
+                foreach (var ar in project.AssemblyReferences.Where(x => !string.IsNullOrWhiteSpace(x.HintPath) && x.FileLocation != null 
+                    && (x.Name.ToLower().StartsWith("gcr") || x.Name.ToLower().StartsWith("pcc") 
+                        || (x.FileLocation.InPackages && !x.FileLocation.HintIsValid) || !x.FileLocation.InPackages)))
+                {
+                    Console.WriteLine("CUSTOM:" + ar.Name);
+                }
+            }
+            Console.ReadLine();
         }
 
     }

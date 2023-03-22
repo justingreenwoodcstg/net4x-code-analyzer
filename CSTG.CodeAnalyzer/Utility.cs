@@ -24,7 +24,7 @@ namespace CSTG.CodeAnalyzer
                 if (extensions.Any(x => file.Extension.Equals(x, StringComparison.InvariantCultureIgnoreCase)))
                 {
                     // this is a match
-                    matchingFiles.Add(file); break;
+                    matchingFiles.Add(file);
                 }
             }
             foreach (var dir in parent.GetDirectories())

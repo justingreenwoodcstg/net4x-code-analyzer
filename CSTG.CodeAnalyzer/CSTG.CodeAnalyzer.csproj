@@ -70,6 +70,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Model\ProjectFile.cs" />
+    <Compile Include="Reports\ReportGenerator.cs" />
     <Compile Include="SolutionFileUtil.cs" />
     <Compile Include="Utility.cs" />
     <Compile Include="Program.cs" />
