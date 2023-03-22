@@ -65,6 +65,7 @@ namespace CSTG.CodeAnalyzer.Model
         public List<NugetPackage> NugetPackages { get; set; } = new List<NugetPackage>();
         public List<ProjectReference> ProjectReferences { get; set; } = new List<ProjectReference>();
         public List<AssemblyReference> AssemblyReferences { get; set; } = new List<AssemblyReference>();
+        public List<ConfigFile> ConfigFiles { get; set; } = new List<ConfigFile>();
     }
 
     public class NugetPackage
@@ -151,7 +152,28 @@ namespace CSTG.CodeAnalyzer.Model
         public string Culture { get; set; }
         public string ProcessorArchitecture { get; set; }
         public string PublicKeyToken { get; set; }
+        public string PackageId { get; set; }
         public AssemblyReferenceFile FileLocation { get; set; } 
 
+    }
+
+    public class ConfigFile
+    {
+        public FileInfo File { get; set; }
+        public List<NameValuePair> ConnectionStrings { get; set; } = new List<NameValuePair>();
+        public List<NameValuePair> Settings { get; set; } = new List<NameValuePair>();
+        public List<NameValuePair> ServiceModelEndpoints { get; set; } = new List<NameValuePair>();
+        public List<NameValuePair> MailSettings { get; set; } = new List<NameValuePair>();
+    }
+
+    public class NameValuePair
+    {
+        public NameValuePair(string name, string value)
+        {
+            this.Name = name;
+            this.Value = value;
+        }
+        public string Name { get; set; }
+        public string Value { get; set; }
     }
 }

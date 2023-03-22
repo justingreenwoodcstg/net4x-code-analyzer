@@ -8,7 +8,6 @@ using CSTG.CodeAnalyzer.Model;
 using System.Xml;
 using Newtonsoft.Json;
 using System.Diagnostics;
-using System.Reflection;
 
 namespace CSTG.CodeAnalyzer
 {
@@ -88,70 +87,18 @@ namespace CSTG.CodeAnalyzer
                     Projects = projectFiles
                 };
 
-                //File.WriteAllText("ProjectsAndSolutions.json", JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented));
+                AssemblyUtil.EnrichHarvestedDataWithAssemblies(untouchedDir, data);
 
-                var allDllFiles = Utility.RecursiveFileSearch(untouchedDir, extensions: new string[] { ".dll" }, skipDirs: new string[] { ".git" });
 
-                foreach (var p in data.Projects)
+                foreach (var project in data.Projects)
                 {
-                    var projectFolderDllFiles = allDllFiles.Where(f => f.FullName.StartsWith(p.File.Directory.FullName)).ToList();
-
-                    foreach (var assRef in p.AssemblyReferences.Where(x => !string.IsNullOrWhiteSpace(x.HintPath)))
+                    var configFiles = Utility.RecursiveFileSearch(project.File.Directory, extensions: new string[] { ".config" }, skipDirs: new string[] { "bin", "obj", "packages", "Libraries", ".git" });
+                    foreach (var confFile in configFiles.Where(c => c.Name.Equals("app.config", StringComparison.InvariantCultureIgnoreCase) || c.Name.Equals("web.config", StringComparison.InvariantCultureIgnoreCase)))
                     {
-                        bool foundUsingHint = true;
-                        var fi = new FileInfo(Path.Combine(p.File.Directory.FullName, assRef.HintPath));
-                        System.Reflection.Assembly matchingAssembly = null;
-                        if (fi.Exists) try { matchingAssembly = System.Reflection.Assembly.LoadFile(fi.FullName); } catch { }
-
-                        if (!fi.Exists)
-                        {
-                            foundUsingHint = false;
-
-                            var dllName = assRef.Name.EndsWith(".dll") ? assRef.Name : $"{assRef.Name}.dll";
-
-                            //TODO: collect all of the matches, and then try to get the one with the closest version?
-                            var assemblies = projectFolderDllFiles
-                                .Where(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase))
-                                .Select(x =>
-                                {
-                                    try { return System.Reflection.Assembly.LoadFile(x.FullName); } catch { return null; }
-                                }).Where(x => x != null).ToList();
-                            matchingAssembly = assemblies.Where(x => assRef.Version == null || x.GetName().Version == assRef.Version).FirstOrDefault();
-                            var lastOptionMatch = assemblies.FirstOrDefault();
-                            if (matchingAssembly == null)
-                            {
-                                assemblies = allDllFiles
-                                    .Where(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase))
-                                    .Select(x =>
-                                    {
-                                        try { return System.Reflection.Assembly.LoadFile(x.FullName); } catch { return null; }
-                                    }).Where(x => x != null).ToList();
-                                matchingAssembly = assemblies.Where(x => assRef.Version == null || x.GetName().Version == assRef.Version).FirstOrDefault();
-                                if (lastOptionMatch == null) lastOptionMatch = assemblies.FirstOrDefault();
-                            }
-                            matchingAssembly = matchingAssembly ?? lastOptionMatch;
-                            if (matchingAssembly == null)
-                            {
-                                fi = projectFolderDllFiles.FirstOrDefault(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase))
-                                    ?? allDllFiles.FirstOrDefault(x => x.Name.Equals(dllName, StringComparison.InvariantCultureIgnoreCase));
-                            }
-                            else
-                            {
-                                fi = new FileInfo(matchingAssembly.Location);
-                            }
-                        }
-
-                        if (fi?.Exists ?? false)
-                        {
-                            assRef.FileLocation = new AssemblyReferenceFile
-                            {
-                                File = fi,
-                                Version = matchingAssembly?.GetName().Version,
-                                HintIsValid = foundUsingHint
-                            };
-                        }
+                        project.ConfigFiles.Add(ConfigFileUtil.Read(confFile));
                     }
                 }
+
                 File.WriteAllText("ProjectsAndSolutions.json", JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented));
             }
 

@@ -69,7 +69,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AssemblyUtil.cs" />
     <Compile Include="Model\ProjectFile.cs" />
+    <Compile Include="ConfigFileUtil.cs" />
     <Compile Include="Reports\ReportGenerator.cs" />
     <Compile Include="SolutionFileUtil.cs" />
     <Compile Include="Utility.cs" />
