@@ -14,27 +14,37 @@ namespace CSTG.CodeAnalyzer
 {
     internal class Program
     {
+        const bool FORCE_RELOAD = false;
+
         static void Main(string[] args)
         {
-            var untouchedDir = new DirectoryInfo(@"C:\projects\state-of-indiana\untouched");
-            var workingDirectories = new DirectoryInfo[] {
-                new DirectoryInfo(@"C:\git-repos\IN_AdminApp_DOR"),
-                new DirectoryInfo(@"C:\git-repos\IN_AdminApp_DWD"),
-                new DirectoryInfo(@"C:\git-repos\IN_AdminApp_IPLA"),
-                new DirectoryInfo(@"C:\git-repos\IN_AdminApp_SOS"),
-                new DirectoryInfo(@"C:\git-repos\IN_BSD"),
-                new DirectoryInfo(@"C:\git-repos\IN_INBIZ"),
-                new DirectoryInfo(@"C:\git-repos\IN_WebService_BSDService")
-            };
+            if (args.Length == 0)
+            {
+                AnalyzeFolder("Everything", "everything-untouched", @"C:\projects\state-of-indiana\untouched");
+                AnalyzeFolder("IN_INBIZ", "in-inbiz-untouched", @"C:\projects\state-of-indiana\untouched\IN_INBIZ");
+                AnalyzeFolder("IN_BSD", "in-bsd-untouched", @"C:\projects\state-of-indiana\untouched\IN_BSD");
+                AnalyzeFolder("IN_WebService_BSDService", "in-bsdsvc-untouched", @"C:\projects\state-of-indiana\untouched\IN_WebService_BSDService");
+                AnalyzeFolder("IN_AdminApp_SOS", "in-admin-sos-untouched", @"C:\projects\state-of-indiana\untouched\IN_AdminApp_SOS");
+                AnalyzeFolder("IN_AdminApp_DOR", "in-admin-dor-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DOR");
+                AnalyzeFolder("IN_AdminApp_DWD", "in-admin-dwd-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DWD");
+                AnalyzeFolder("IN_AdminApp_IPLA", "in-admin-ipla-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_IPLA");
+            }
+        }
+
+        public static void AnalyzeFolder(string title, string filePrefix, string directory)
+        { 
+            var rootDirectory = new DirectoryInfo(directory);
+            var jsonDataFileName = filePrefix + "-code-analysis.json";
+            var htmlReportName = filePrefix + "-code-analysis.html";
 
             // files to look at in the future - .sln (build/deploy profiles) .sql (ddl files) *.cs app.config web.config packages.config
             HarvestedData data = null;
 
-            if (File.Exists("ProjectsAndSolutions.json"))
+            if (File.Exists(jsonDataFileName) && !FORCE_RELOAD)
             {
                 try
                 {
-                    data = JsonConvert.DeserializeObject<HarvestedData>(File.ReadAllText("ProjectsAndSolutions.json"));
+                    data = JsonConvert.DeserializeObject<HarvestedData>(File.ReadAllText(jsonDataFileName));
                 } catch { }
             }
 
@@ -42,7 +52,7 @@ namespace CSTG.CodeAnalyzer
             {
                 // deal with project files!
                 var projectFiles = new List<ProjectFile>();
-                var matchingFiles = Utility.RecursiveFileSearch(untouchedDir, extensions: new string[] { ".csproj" }, skipDirs: new string[] { "bin", "obj", "packages", "Libraries", ".git" });
+                var matchingFiles = Utility.RecursiveFileSearch(rootDirectory, extensions: new string[] { ".csproj" }, skipDirs: new string[] { "bin", "obj", "packages", "Libraries", ".git" });
                 foreach (var projFile in matchingFiles)
                 {
                     var projectFile = ProjectFileUtil.Read(projFile);
@@ -56,7 +66,7 @@ namespace CSTG.CodeAnalyzer
 
                 // deal with project files!
                 var solutionFiles = new List<SolutionFile>();
-                matchingFiles = Utility.RecursiveFileSearch(untouchedDir, extensions: new string[] { ".sln" }, skipDirs: new string[] { "bin", "obj", "packages", "Libraries", ".git" });
+                matchingFiles = Utility.RecursiveFileSearch(rootDirectory, extensions: new string[] { ".sln" }, skipDirs: new string[] { "bin", "obj", "packages", "Libraries", ".git" });
                 foreach (var solFile in matchingFiles)
                 {
                     var solutionfile = SolutionFileUtil.Read(solFile);
@@ -84,11 +94,12 @@ namespace CSTG.CodeAnalyzer
 
                 data = new HarvestedData
                 {
+                    ReportTitle = title,
                     Solutions = solutionFiles,
                     Projects = projectFiles
                 };
 
-                AssemblyUtil.EnrichHarvestedDataWithAssemblies(untouchedDir, data);
+                AssemblyUtil.EnrichHarvestedDataWithAssemblies(rootDirectory, data);
 
 
                 foreach (var project in data.Projects)
@@ -100,29 +111,34 @@ namespace CSTG.CodeAnalyzer
                     }
                 }
 
-                File.WriteAllText("ProjectsAndSolutions.json", JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented));
+                File.WriteAllText(jsonDataFileName, JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented));
             }
-
-            foreach (var project in data.Projects)
+            if (data.ReportTitle != title)
             {
-                Console.WriteLine("=========================================================================");
-                Console.WriteLine("== " + project.AssemblyName);
-                Console.WriteLine("=========================================================================");
-                foreach (var ar in project.AssemblyReferences.Where(x => !string.IsNullOrWhiteSpace(x.HintPath) && x.FileLocation == null))
-                {
-                    Console.WriteLine("MISSING:" + ar.Name);
-                }
-                Console.WriteLine("-------------------------------------------------------------------------");
-                foreach (var ar in project.AssemblyReferences.Where(x => !string.IsNullOrWhiteSpace(x.HintPath) && x.FileLocation != null 
-                    && (x.Name.ToLower().StartsWith("gcr") || x.Name.ToLower().StartsWith("pcc") 
-                        || (x.FileLocation.InPackages && !x.FileLocation.HintIsValid) || !x.FileLocation.InPackages)))
-                {
-                    Console.WriteLine("CUSTOM:" + ar.Name);
-                }
+                data.ReportTitle = title;
+                File.WriteAllText(jsonDataFileName, JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented));
             }
 
+            //foreach (var project in data.Projects)
+            //{
+            //    Console.WriteLine("=========================================================================");
+            //    Console.WriteLine("== " + project.AssemblyName);
+            //    Console.WriteLine("=========================================================================");
+            //    foreach (var ar in project.AssemblyReferences.Where(x => !string.IsNullOrWhiteSpace(x.HintPath) && x.FileLocation == null))
+            //    {
+            //        Console.WriteLine("MISSING:" + ar.Name);
+            //    }
+            //    Console.WriteLine("-------------------------------------------------------------------------");
+            //    foreach (var ar in project.AssemblyReferences.Where(x => !string.IsNullOrWhiteSpace(x.HintPath) && x.FileLocation != null 
+            //        && (x.Name.ToLower().StartsWith("gcr") || x.Name.ToLower().StartsWith("pcc") 
+            //            || (x.FileLocation.InPackages && !x.FileLocation.HintIsValid) || !x.FileLocation.InPackages)))
+            //    {
+            //        Console.WriteLine("CUSTOM:" + ar.Name);
+            //    }
+            //}
 
-            SaveOutputFile("IndianaSourceCodeAnalysisReport.html",
+
+            SaveOutputFile(htmlReportName,
                 null,
                 HtmlReportGenerator.GenerateHtml(data));
             //Console.ReadLine();

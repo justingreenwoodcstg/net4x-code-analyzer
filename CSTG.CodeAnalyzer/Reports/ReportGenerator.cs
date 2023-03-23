@@ -1,10 +1,12 @@
 ﻿using CSTG.CodeAnalyzer.Model;
+using NuGet.ContentModel;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace CSTG.CodeAnalyzer.Reports
 {
@@ -28,33 +30,59 @@ namespace CSTG.CodeAnalyzer.Reports
             var sb = new StringBuilder();
 
             sb.AppendLine(FileHeader
-                .Replace("{title}", $"IN SOS Source Code Analysis - {DateTime.Now.ToString()}")
+                .Replace("{title}", $"{data.ReportTitle} - Source Code Analysis - {DateTime.Now.ToString()}")
                 .Replace("{css}", CssBlock));
 
-            sb.AppendLine("<h1>IN SOS PSource Code Analysis</h1>");
+            sb.AppendLine($"<h1>{data.ReportTitle} - Source Code Analysis</h1>");
             sb.AppendLine($"<p><i>Generated from the source code on {DateTime.Now.ToString()}.</i></p>");
             sb.AppendLine(GenerateTOC(data));
 
-            sb.AppendLine("<h1>Applications</h1>");
-            foreach (var sln in data.Solutions)
+            var webProjects = data.Projects.Where(x => x.IsWebProject).OrderBy(p => p.AssemblyName);
+            var exeProjects = data.Projects.Where(x => !x.IsWebProject && !x.IsTestProject && x.ProjectType != "Library").OrderBy(p => p.AssemblyName);
+            var testProjects = data.Projects.Where(x => x.IsTestProject).OrderBy(p => p.AssemblyName);
+            var classLibraries = data.Projects.Where(x => x.ProjectType == "Library").OrderBy(p => p.AssemblyName);
+
+            if (webProjects.Any())
             {
-                sb.AppendLine(GenerateSolutionReport(sln, data));
+                sb.AppendLine("<h1>Web Applications</h1>");
+                foreach (var proj in webProjects)
+                {
+                    sb.AppendLine(GenerateProjectReport(proj, data));
+                }
+            }
+            if (exeProjects.Any())
+            {
+                sb.AppendLine("<h1>Executable Applications</h1>");
+                foreach (var proj in exeProjects)
+                {
+                    sb.AppendLine(GenerateProjectReport(proj, data));
+                }
+            }
+            if (testProjects.Any())
+            {
+                sb.AppendLine("<h1>Unit Test Projects</h1>");
+                foreach (var proj in testProjects)
+                {
+                    sb.AppendLine(GenerateProjectReport(proj, data));
+                }
+            }
+            if (classLibraries.Any())
+            {
+                sb.AppendLine("<h1>Class Libraries</h1>");
+                foreach (var proj in classLibraries)
+                {
+                    sb.AppendLine(GenerateProjectReport(proj, data));
+                }
             }
 
-            sb.AppendLine("<h1>Projects</h1>");
-            foreach (var proj in data.Projects)
-            {
-                sb.AppendLine(GenerateProjectReport(proj, data)); 
-            }
-
-            sb.AppendLine("<h1>NuGet Packages</h1>");
             sb.AppendLine(GenerateNuGetPackagesReport(data));
 
-            sb.AppendLine("<h1>Custom Libraries</h1>");
-            sb.AppendLine(GenerateCustomLibrariesReport(data));
+            //sb.AppendLine("<h1>Custom Libraries</h1>");
+            //sb.AppendLine(GenerateCustomLibrariesReport(data));
 
-            sb.AppendLine("<h1>Third Party Libraries</h1>");
-            sb.AppendLine(Generate3rdPartyLibrariesReport(data));
+            sb.AppendLine("<h1>Assemblies</h1>");
+            sb.AppendLine(GenerateCustomLibrariesReport("Custom Libraries", "custom-dlls", true, data));
+            sb.AppendLine(GenerateCustomLibrariesReport("Third Party Libraries", "third-party-dlls", false, data));
             /*
             sb.AppendLine("<h1>Entity Relationship Diagram</h1>");
             if (File.Exists("Images/smt-erd.png"))
@@ -89,65 +117,81 @@ namespace CSTG.CodeAnalyzer.Reports
         }
         protected static string GenerateTOC(HarvestedData data)
         {
+            var webProjects = data.Projects.Where(x => x.IsWebProject).OrderBy(p => p.AssemblyName);
+            var exeProjects = data.Projects.Where(x => !x.IsWebProject && !x.IsTestProject && x.ProjectType != "Library").OrderBy(p => p.AssemblyName);
+            var testProjects = data.Projects.Where(x => x.IsTestProject).OrderBy(p => p.AssemblyName);
+            var classLibraries = data.Projects.Where(x => x.ProjectType == "Library").OrderBy(p => p.AssemblyName);
+
             var sb = new StringBuilder();
             sb.AppendLine("<section class=\"toc\">")
                 .AppendLine("\t<h2>Table of Contents</h2>")
                 .AppendLine("\t<ul>")
-                //.AppendLine("\t\t<li><a href=\"#erd\">Entity Relationship Diagram</a></li>")
-                .AppendLine("\t\t<li>Applications</li>")
-                .AppendLine("\t\t\t<ul>");
-            foreach (var sln in data.Solutions)
+                .AppendLine("\t\t<li><a href=\"#nuget_packages\">NuGet Packages</a></li>")
+                .AppendLine("\t\t<li><a href=\"#custom-dlls\">Custom Assemblies</a></li>")
+                .AppendLine("\t\t<li><a href=\"#third-party-dlls\">Third Party Assemblies</a></li>");
+            if (webProjects.Any())
             {
-                sb.AppendLine($"\t\t\t\t<li><a href=\"#sln_{sln.File.Name}\">{sln.File.Name}  ({sln.Projects.Count} Projects)</a></li>");
+                sb.AppendLine("\t\t<li>Web Applications")
+                    .AppendLine("\t\t\t<ul>");
+                foreach (var proj in webProjects)
+                {
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
+                }
+                sb.AppendLine("\t\t\t</ul></li>");
             }
-            sb.AppendLine("\t\t\t</ul>")
-                .AppendLine("\t\t<li>Projects</li>")
-                .AppendLine("\t\t\t<ul>");
-            foreach (var proj in data.Projects)
+            if (exeProjects.Any())
             {
-                sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.IsWebProject ? "Web" : proj.OutputType)})</a></li>");
+                sb.AppendLine("\t\t<li>Executable Applications")
+                    .AppendLine("\t\t\t<ul>");
+                foreach (var proj in exeProjects)
+                {
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
+                }
+                sb.AppendLine("\t\t\t</ul></li>");
             }
-            sb.AppendLine("\t\t\t</ul>")
-                .AppendLine("\t\t</li>")
-                .AppendLine("\t</ul>")
+            if (testProjects.Any())
+            {
+                sb.AppendLine("\t\t<li>Unit Test Projects")
+                    .AppendLine("\t\t\t<ul>");
+                foreach (var proj in testProjects)
+                {
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
+                }
+                sb.AppendLine("\t\t\t</ul></li>");
+            }
+            if (classLibraries.Any())
+            {
+                sb.AppendLine("\t\t<li>Class Libraries")
+                .AppendLine("\t\t\t<ul>");
+                foreach (var proj in data.Projects.Where(x => x.ProjectType == "Library").OrderBy(p => p.AssemblyName))
+                {
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
+                }
+                sb.AppendLine("\t\t\t</ul></li>");
+            }
+            sb.AppendLine("\t</ul>")
                 .AppendLine("</section>");
             return sb.ToString();
         }
-        protected static string GenerateSolutionReport(SolutionFile sln, HarvestedData data)
+        protected static string GenerateHierarchy(ProjectFile rootProject, HarvestedData data)
         {
             var sb = new StringBuilder();
 
-            var webProjects = new List<ProjectFile>();
-            var otherProjects = new List<ProjectFile>();
-            foreach (var projRef in sln.Projects)
-            {
-                var matchingProj = data.Projects.Where(x => x.ProjectId == projRef.ProjectId).FirstOrDefault();
-                if (matchingProj != null)
-                {
-                    if (matchingProj.IsWebProject)
-                        webProjects.Add(matchingProj);
-                    else
-                        otherProjects.Add(matchingProj);
-                }
-            }
-
-            sb.AppendLine($"<section id=\"sln_{sln.File.Name}\" class=\"table\">")
-                .AppendLine($"\t<h2>{sln.File.Name}</h2>")
-                .AppendLine($"\t<h3>Reference Hierarchy</h3>")
+            sb.AppendLine($"\t<h3>Reference Hierarchy</h3>")
                 .AppendLine($"\t<ul>");
 
             Action<ProjectFile, int> renderSome = null;
             renderSome = new Action<ProjectFile, int>((proj, depth) =>
             {
                 if (depth > 10) return;
-                sb.AppendLine($"\t\t<li>{proj.AssemblyName}</li>");
+                sb.AppendLine($"\t\t<li>{proj.AssemblyName}");
                 if (proj.ProjectReferences.Count > 0)
                 {
                     sb.AppendLine($"\t\t<ul>");
                     foreach (var _childProjRef in proj.ProjectReferences)
                     {
-                        var _childProj = otherProjects.Where(x => x.ProjectId == _childProjRef.ProjectId).FirstOrDefault() ??
-                            otherProjects.Where(x => x.AssemblyName == _childProjRef.Name).FirstOrDefault();
+                        var _childProj = data.Projects.Where(x => x.ProjectId == _childProjRef.ProjectId).FirstOrDefault() ??
+                            data.Projects.Where(x => x.AssemblyName == _childProjRef.Name).FirstOrDefault();
                         if (_childProj != null)
                         {
                             renderSome(_childProj, depth+1);
@@ -155,14 +199,11 @@ namespace CSTG.CodeAnalyzer.Reports
                     }
                     sb.AppendLine($"\t\t</ul>");
                 }
+                sb.AppendLine($"\t\t</li>");
             });
 
-            foreach (var project in webProjects)
-            {
-                renderSome(project, 0);
-            }
+            renderSome(rootProject, 0);
             sb.AppendLine($"\t</ul>");
-            sb.AppendLine($"</section>");
             return sb.ToString();
         }
         protected static string GenerateProjectReport(ProjectFile proj, HarvestedData data)
@@ -171,7 +212,7 @@ namespace CSTG.CodeAnalyzer.Reports
 
 
             sb.AppendLine($"<section id=\"prj_{proj.AssemblyName}\" class=\"table\">")
-                .AppendLine($"\t<h2>{proj.AssemblyName} ({proj.FrameworkVersion} - {(proj.IsWebProject ? "Web" : proj.OutputType)})</h2>")
+                .AppendLine($"\t<h2>{proj.AssemblyName} ({proj.FrameworkVersion} - {(proj.ProjectType)})</h2>")
                 .AppendLine($"\t<p>This project has {proj.ConfigFiles.Count} config file(s), {proj.NugetPackages.Count} nuget package registration(s), {proj.AssemblyReferences.Count} assembly reference(s) and {proj.ProjectReferences.Count} project reference(s).</p>");
 
             var connectionStrings = new List<NameValuePair>();
@@ -201,8 +242,8 @@ namespace CSTG.CodeAnalyzer.Reports
                     foreach (var cs in dict)
                     {
                         sb.AppendLine($"\t\t\t<tr>");
-                        sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{cs.Name}</td>");
-                        sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{cs.Value}</td>");
+                        sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{HttpUtility.HtmlEncode(cs.Name)}</td>");
+                        sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{HttpUtility.HtmlEncode(cs.Value)}</td>");
                         sb.AppendLine($"\t\t\t</tr>");
                     }
                     sb.AppendLine($"\t\t</tbody>")
@@ -258,32 +299,39 @@ namespace CSTG.CodeAnalyzer.Reports
                     var isCustomAssembly = assRef.Name.ToLower().StartsWith("pcc") || assRef.Name.ToLower().StartsWith("gcr");
                     var status = "&nbsp;";
                     var isInPackages = assRef.HintPath.Contains(@"\packages\");
+                    var fileMissing = assRef.FileLocation == null;
                     if (isCustomAssembly)
                     {
                         if (isInPackages)
                         {
-                            status = "[Private Registry]";
-                            if (assRef.FileLocation == null) status += " [Missing File]";
+                            status = "<span class=\"tag\">Private Registry</span> ";
+                            if (fileMissing) status += "<span class=\"tag error-tag\">Missing File</span> ";
                         }
-                        else if (assRef.FileLocation == null) status = "[Missing File]";
+                        else if (fileMissing) status = "<span class=\"tag error-tag\">Missing File</span> ";
                     }
-                    else 
+                    else
                     {
-                        if (assRef.FileLocation == null)
+                        if (fileMissing)
                         {
-                            status = isInPackages ? "[Invalid Registration] [Missing File]" : "[Missing File]";
+                            status = "<span class=\"tag error-tag\">Missing File</span> ";
+                            if (isInPackages) status += "<span class=\"tag\">Invalid Registration</span> ";
                         }
                         else
                         {
-                            if (isInPackages) status = "[Invalid Registration]";
+                            if (isInPackages) status = "<span class=\"tag\">Invalid Registration</span> ";
+                            else status = "<span class=\"tag\">Needs Registration</span>";
                         }
+                    }
+                    if ((assRef.FileLocation?.InOutputDirectory ?? false) || assRef.HintPath.Contains(@"\bin\Debug") || assRef.HintPath.Contains(@"\bin\Release"))
+                    {
+                        status += "<span class=\"tag\">BIN Reference</span>"; status = status.Trim();
                     }
                     sb.AppendLine($"\t\t\t<tr>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{assRef.Name}</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{assRef.VersionString ?? assRef.FileLocation?.VersionString}</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{assRef.HintPath}</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{((assRef.FileLocation?.HintIsValid ?? false) ? "Yes" : "No")}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{status}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap warning-text\">{status}</td>");
                     sb.AppendLine($"\t\t\t</tr>");
                 }
                 sb.AppendLine($"\t\t</tbody>")
@@ -343,21 +391,191 @@ namespace CSTG.CodeAnalyzer.Reports
                 sb.AppendLine($"\t\t</tbody>")
                     .AppendLine($"\t</table>");
             }
+
+            sb.Append(GenerateHierarchy(proj, data));
+
+            sb.AppendLine("</section>");
             return sb.ToString();
         }
         protected static string GenerateNuGetPackagesReport(HarvestedData data)
         {
             var sb = new StringBuilder();
+
+            sb.AppendLine($"<section id=\"nuget_packages\" class=\"table\">")
+                .AppendLine($"\t<h2>NuGet Packages</h2>");
+            var packages = new Dictionary<string, List<(NugetPackage, ProjectFile)>>();
+            foreach (var project in data.Projects)
+            {
+                foreach (var pkg in project.NugetPackages)
+                {
+                    if (!packages.ContainsKey(pkg.Id))
+                    {
+                        packages[pkg.Id] = new List<(NugetPackage, ProjectFile)>();
+                    }
+                    packages[pkg.Id].Add((pkg, project));
+                }
+            }
+
+
+            if (packages.Count > 0)
+            {
+                sb
+                    .AppendLine($"\t<h3>Combined Package List</h3>")
+                    .AppendLine($"\t<table>")
+                    .AppendLine($"\t\t<thead>")
+                    .AppendLine($"\t\t\t<tr>")
+                    .AppendLine($"\t\t\t\t<th>Name</th><th>Versions</th><th>Age</th><th>Published</th><th>Latest Version</th><th>Latest Published</th>")
+                    .AppendLine($"\t\t\t\t<th>Author</th><th>Description</th><th>URLs</th><th>Projects</th>")
+                    .AppendLine($"\t\t\t</tr>")
+                    .AppendLine($"\t\t</thead>")
+                    .AppendLine($"\t\t<tbody>");
+                foreach (var packageId in packages.Keys.OrderBy(x => x))
+                {
+                    var pkgAndProjs = packages[packageId];
+                    var pkg = pkgAndProjs[0].Item1;
+                    var versions = new List<string>();
+                    var projects = new List<ProjectFile>();
+                    foreach (var pkgAndProj in pkgAndProjs)
+                    {
+                        if (!versions.Contains(pkgAndProj.Item1.VersionString)) versions.Add(pkgAndProj.Item1.VersionString);
+                        projects.Add(pkgAndProj.Item2);
+                    }
+                    var inNuget = pkg.VersionDetails != null;
+
+                    sb.AppendLine($"\t\t\t<tr>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{(inNuget ? "" : "<span style=\"error-text\">⛔</span> ")}{pkg.Id}</td>");
+                    sb.AppendLine($"\t\t\t\t<td>{string.Join(" ", versions)}</td>");
+                    if (inNuget)
+                    {
+                        var publishDate = pkg.VersionDetails.DatePublished.Value;
+                        var latestPublishDate = pkg.LatestVersionDetails.DatePublished.Value;
+                        var isDateValid = publishDate.Year > 2000;
+                        var isLatestDateValid = latestPublishDate.Year > 2000;
+
+                        if (isDateValid) sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{((DateTime.Now - publishDate).TotalDays / 365.0).ToString("0.0#")} yrs</td>"); else sb.AppendLine("<td>Age Unknown</td>");
+                        if (isDateValid) sb.AppendLine($"\t\t\t\t<td>{publishDate.Date.ToShortDateString()}</td>"); else sb.AppendLine("<td>&nbsp;</td>");
+
+                        sb.AppendLine($"\t\t\t\t<td>{pkg.LatestVersionDetails.VersionString}</td>");
+                        if (isLatestDateValid) sb.AppendLine($"\t\t\t\t<td>{latestPublishDate.Date.ToShortDateString()}</td>"); else sb.AppendLine("<td>&nbsp;</td>");
+
+                        sb.AppendLine($"\t\t\t\t<td>{pkg.VersionDetails.Authors}</td>");
+                        sb.AppendLine($"\t\t\t\t<td>{pkg.VersionDetails.Summary ?? pkg.VersionDetails.Description}</td>");
+
+                        List<string> urls = new List<string>();
+                        if (!string.IsNullOrWhiteSpace(pkg.VersionDetails.ProjectUrl)) urls.Add($"<a href=\"{pkg.VersionDetails.ProjectUrl}\">Project</a>");
+                        if (!string.IsNullOrWhiteSpace(pkg.VersionDetails.PackageUrl)) urls.Add($"<a href=\"{pkg.VersionDetails.PackageUrl}\">Package</a>");
+
+                        sb.AppendLine($"\t\t\t\t<td>{string.Join(" ", urls)}</td>");
+                    }
+                    else
+                    {
+                        sb.AppendLine("\t\t\t\t<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
+                    }
+                    sb.AppendLine($"\t\t\t\t<td>{string.Join(" ", projects.Select(x => x.AssemblyName))}</td>");
+
+                    sb.AppendLine($"\t\t\t</tr>");
+                }
+                sb.AppendLine($"\t\t</tbody>")
+                    .AppendLine($"\t</table>");
+            }
+            sb.AppendLine($"</section>");
+
             return sb.ToString();
         }
-        protected static string GenerateCustomLibrariesReport(HarvestedData data)
+        protected static string GenerateCustomLibrariesReport(string name, string anchor, bool isCustom, HarvestedData data)
         {
             var sb = new StringBuilder();
-            return sb.ToString();
-        }
-        protected static string Generate3rdPartyLibrariesReport(HarvestedData data)
-        {
-            var sb = new StringBuilder();
+
+            sb.AppendLine($"<section id=\"{anchor}\" class=\"table\">")
+                .AppendLine($"\t<h2>{name}</h2>");
+            var assemblies = new Dictionary<string, List<(AssemblyReference, ProjectFile)>>();
+            foreach (var project in data.Projects)
+            {
+                var subset = isCustom 
+                    ? project.AssemblyReferences.Where(a => string.IsNullOrWhiteSpace(a.PackageId) && !string.IsNullOrWhiteSpace(a.HintPath) && (a.Name.ToLower().StartsWith("pcc") || a.Name.ToLower().StartsWith("gcr")))
+                    : project.AssemblyReferences.Where(a => string.IsNullOrWhiteSpace(a.PackageId) && !string.IsNullOrWhiteSpace(a.HintPath) && (!a.Name.ToLower().StartsWith("pcc") && !a.Name.ToLower().StartsWith("gcr")));
+                foreach (var ass in subset)
+                {
+                    if (!assemblies.ContainsKey(ass.Name))
+                    {
+                        assemblies[ass.Name] = new List<(AssemblyReference, ProjectFile)>();
+                    }
+                    assemblies[ass.Name].Add((ass, project));
+                }
+            }
+
+            
+            if (assemblies.Count > 0)
+            {
+                sb
+                    .AppendLine($"\t<h3>Combined Assembly List</h3>")
+                    .AppendLine($"\t<table>")
+                    .AppendLine($"\t\t<thead>")
+                    .AppendLine($"\t\t\t<tr>")
+                    .AppendLine($"\t\t\t\t<th>Assembly</th><th>Versions</th><th>Location Hint</th><th>Hint Valid?</th><th>Projects</th><th>Issues</th>")
+                    .AppendLine($"\t\t\t</tr>")
+                    .AppendLine($"\t\t</thead>")
+                    .AppendLine($"\t\t<tbody>");
+                foreach (var assemblyName in assemblies.Keys.OrderBy(x => x))
+                {
+                    var assAndProjs = assemblies[assemblyName];
+                    var assRef = assAndProjs[0].Item1;
+                    var versions = new List<string>();
+                    var projects = new List<ProjectFile>();
+                    foreach (var assAndProj in assAndProjs)
+                    {
+                        var v = assAndProj.Item1.VersionString ?? assAndProj.Item1.FileLocation?.VersionString;
+                        if (v != null) if (!versions.Contains(v)) versions.Add(v);
+                        projects.Add(assAndProj.Item2);
+                    }
+                    var isCustomAssembly = assRef.Name.ToLower().StartsWith("pcc") || assRef.Name.ToLower().StartsWith("gcr");
+                    var status = "&nbsp;";
+                    var isInPackages = assRef.HintPath.Contains(@"\packages\");
+                    var fileMissing = assRef.FileLocation == null;
+                    if (isCustomAssembly)
+                    {
+                        if (isInPackages)
+                        {
+                            status = "<span class=\"tag\">Private Registry</span> ";
+                            if (fileMissing) status += "<span class=\"tag error-tag\">Missing File</span> ";
+                        }
+                        else if (fileMissing) status = "<span class=\"tag error-tag\">Missing File</span> ";
+                    }
+                    else
+                    {
+                        if (fileMissing)
+                        {
+                            status = "<span class=\"tag error-tag\">Missing File</span> ";
+                            if (isInPackages) status += "<span class=\"tag\">Invalid Registration</span> ";
+                        }
+                        else
+                        {
+                            if (isInPackages) status = "<span class=\"tag\">Invalid Registration</span> ";
+                            else status = "<span class=\"tag\">Needs Registration</span>";
+                        }
+                    }
+                    if (versions.Count > 1)
+                    {
+                        status += "<span class=\"tag\">Multiple Versions</span>"; status = status.Trim();
+                    }
+                    if ((assRef.FileLocation?.InOutputDirectory ?? false) || assRef.HintPath.Contains(@"\bin\Debug") || assRef.HintPath.Contains(@"\bin\Release"))
+                    {
+                        status += "<span class=\"tag\">BIN Reference</span>"; status = status.Trim();
+                    }
+                    sb.AppendLine($"\t\t\t<tr>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{assRef.Name}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{string.Join(" ",versions)}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{assRef.HintPath}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{((assRef.FileLocation?.HintIsValid ?? false) ? "Yes" : "No")}</td>");
+                    sb.AppendLine($"\t\t\t\t<td>{string.Join(" ", projects.Select(x => x.AssemblyName))}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap warning-text\">{status}</td>");
+                    sb.AppendLine($"\t\t\t</tr>");
+                }
+                sb.AppendLine($"\t\t</tbody>")
+                    .AppendLine($"\t</table>");
+            }
+            sb.AppendLine($"</section>");
+
             return sb.ToString();
         }
 
@@ -559,6 +777,9 @@ namespace CSTG.CodeAnalyzer.Reports
             font-size: 12px;
         }
 
+        h1 {
+        }
+
         h2 {
             width: 100%;
             background-color: lightgray;
@@ -591,7 +812,7 @@ namespace CSTG.CodeAnalyzer.Reports
         }
 
         .warning-text {
-            color: yellow;
+            color: red;
         }
 
         .warning-bg {
@@ -681,6 +902,23 @@ namespace CSTG.CodeAnalyzer.Reports
             padding: 10px;
             overflow-x: scroll;
             width: 95%;
+        }
+
+        .tag {
+          border-radius: 4px;
+          position: relative;
+          background: orange;
+          color: black;
+          text-align:center;
+          padding: 2px;
+          padding-left: 6px;
+          padding-right: 6px;
+          font-size: 10px;
+
+        }
+        .error-tag {
+          background: red;
+          color: white;
         }
     </style>";
         #endregion

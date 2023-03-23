@@ -32,7 +32,8 @@ namespace CSTG.CodeAnalyzer
             XmlNodeList contents = xmlDoc.GetElementsByTagName("Content");
             XmlNodeList nones = xmlDoc.GetElementsByTagName("None");
             XmlNodeList useIISExpress = xmlDoc.GetElementsByTagName("UseIISExpress");
-
+            XmlNodeList testProjType = xmlDoc.GetElementsByTagName("TestProjectType");
+            
             /*
                      <WebProjectProperties>
           <UseIIS>False</UseIIS>
@@ -48,6 +49,7 @@ namespace CSTG.CodeAnalyzer
             if (assemblyNames.Count == 1) { Console.WriteLine("\t" + assemblyNames[0].InnerText); projectFile.AssemblyName = assemblyNames[0].InnerText; }
             if (targetFrameworkVersions.Count == 1) { Console.WriteLine("\t" + targetFrameworkVersions[0].InnerText); projectFile.FrameworkVersion = targetFrameworkVersions[0].InnerText; }
             if (useIISExpress.Count == 1) { Console.WriteLine("\t" + useIISExpress[0].InnerText); projectFile.IsWebProject = useIISExpress[0].InnerText.ToLower() == "true"; }
+            if (testProjType.Count >= 1) { Console.WriteLine("\t" + testProjType[0].InnerText); projectFile.IsTestProject = testProjType[0].InnerText.ToLower() == "unittest"; }
 
             FileInfo packagesFile = null;
             foreach (XmlNode contentNode in contents)

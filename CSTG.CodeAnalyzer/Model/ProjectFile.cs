@@ -10,6 +10,7 @@ namespace CSTG.CodeAnalyzer.Model
 {
     public class HarvestedData
     {
+        public string ReportTitle { get; set; } = ".Net Solution";
         public List<SolutionFile> Solutions { get; set; } = new List<SolutionFile>();
         public List<ProjectFile> Projects { get; set; } = new List<ProjectFile>();
         //public List<AssemblyInfo> Assemblies { get; set; } = new List<AssemblyInfo>();
@@ -60,6 +61,9 @@ namespace CSTG.CodeAnalyzer.Model
         public string FrameworkVersion { get; set; }
         public string OutputType { get; set; }
         public bool IsWebProject { get; set; } = false;
+        public bool IsTestProject { get; set; } = false;
+
+        public string ProjectType => IsWebProject ? "Web" : (IsTestProject ? "UnitTest" : OutputType);
 
         public List<FileInfo> SolutionFiles { get; set; } = new List<FileInfo>();
 
