@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Linq;
@@ -81,8 +82,8 @@ namespace CSTG.CodeAnalyzer
                             while (dir?.Parent != null && dir.Parent.Name != "packages") { dir = dir.Parent; }
                             if (dir != null)
                             {
-                                var packageName = dir.Name;
-                                var matchingPackage = p.NugetPackages.Where(x => packageName.StartsWith(x.Id)).OrderByDescending(x=>x.Id.Length).FirstOrDefault();
+                                var packageDirName = dir.Name;
+                                var matchingPackage = p.NugetPackages.Where(x => packageDirName.StartsWith(x.Id, StringComparison.InvariantCultureIgnoreCase)).OrderByDescending(x=>x.Id.Length).FirstOrDefault();
                                 if (matchingPackage != null)
                                 {
                                     assRef.PackageId = matchingPackage.Id;
