@@ -94,7 +94,8 @@ namespace CSTG.CodeAnalyzer
                 ProjectUrl = metaData.ProjectUrl?.ToString(),
                 DatePublished = metaData.Published,
                 Tags = metaData.Tags,
-                Description = metaData.Description ?? metaData.Summary,
+                Summary = metaData.Summary,
+                Description = metaData.Description,
                 Version = metaData.Identity.Version.Version
             };
             return v;

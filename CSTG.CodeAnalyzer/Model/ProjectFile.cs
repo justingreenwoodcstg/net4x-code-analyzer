@@ -59,6 +59,7 @@ namespace CSTG.CodeAnalyzer.Model
         public string NameSpace { get; set; }
         public string FrameworkVersion { get; set; }
         public string OutputType { get; set; }
+        public bool IsWebProject { get; set; } = false;
 
         public List<FileInfo> SolutionFiles { get; set; } = new List<FileInfo>();
 
@@ -87,6 +88,7 @@ namespace CSTG.CodeAnalyzer.Model
 
     public class NugetPackageVersion
     {
+        public string Summary { get; set; }
         public string Description { get; set; }
         [JsonIgnore]
         public Version Version { get; set; }

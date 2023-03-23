@@ -8,6 +8,7 @@ using CSTG.CodeAnalyzer.Model;
 using System.Xml;
 using Newtonsoft.Json;
 using System.Diagnostics;
+using CSTG.CodeAnalyzer.Reports;
 
 namespace CSTG.CodeAnalyzer
 {
@@ -119,8 +120,38 @@ namespace CSTG.CodeAnalyzer
                     Console.WriteLine("CUSTOM:" + ar.Name);
                 }
             }
-            Console.ReadLine();
+
+
+            SaveOutputFile("IndianaSourceCodeAnalysisReport.html",
+                null,
+                HtmlReportGenerator.GenerateHtml(data));
+            //Console.ReadLine();
         }
 
+        public static void SaveOutputFile(string defaultFileName, string overrideFilePath, string fileData)
+        {
+            File.WriteAllText($"{Path.GetFileNameWithoutExtension(defaultFileName)}{Path.GetExtension(defaultFileName)}", fileData);
+            // save the file to the bin directory
+            //if (AppSettings.Instance.CopyAllFilesToBinDirectory)
+            //{
+            //    File.WriteAllText($"{Path.GetFileNameWithoutExtension(defaultFileName)}.{DateTime.Now.ToString("yyyyMMddHHmm")}{Path.GetExtension(defaultFileName)}", fileData);
+            //}
+            // if configured, save the file in the "generated" folder, or overriden output directory
+            //if (AppSettings.Instance.CopyAllFilesToOutputDirectory)
+            //{
+            //    var fp = Path.Combine(AppContext.Instance.OutputDirectory.FullName, defaultFileName);
+            //    if (File.Exists(fp)) File.Delete(fp);
+            //    File.WriteAllText(fp, fileData);
+            //}
+            //if (!string.IsNullOrWhiteSpace(overrideFilePath))
+            //{
+            //    var fi = new FileInfo(overrideFilePath);
+            //    if (fi.Directory.Exists)
+            //    {
+            //        if (fi.Exists) { fi.Delete(); fi.Refresh(); }
+            //        File.WriteAllText(fi.FullName, fileData);
+            //    }
+            //}
+        }
     }
 }

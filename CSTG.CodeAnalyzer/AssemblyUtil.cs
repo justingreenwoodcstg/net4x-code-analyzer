@@ -79,14 +79,10 @@ namespace CSTG.CodeAnalyzer
                             // try to find the package!
                             var dir = assRef.FileLocation.File.Directory;
                             while (dir?.Parent != null && dir.Parent.Name != "packages") { dir = dir.Parent; }
-                            if (dir == null)
-                            {
-                                
-                            } 
-                            else
+                            if (dir != null)
                             {
                                 var packageName = dir.Name;
-                                var matchingPackage = p.NugetPackages.Where(x => packageName.StartsWith(x.Id)).FirstOrDefault();
+                                var matchingPackage = p.NugetPackages.Where(x => packageName.StartsWith(x.Id)).OrderByDescending(x=>x.Id.Length).FirstOrDefault();
                                 if (matchingPackage != null)
                                 {
                                     assRef.PackageId = matchingPackage.Id;

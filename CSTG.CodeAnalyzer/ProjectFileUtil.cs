@@ -31,12 +31,23 @@ namespace CSTG.CodeAnalyzer
             XmlNodeList projectRefs = xmlDoc.GetElementsByTagName("ProjectReference");
             XmlNodeList contents = xmlDoc.GetElementsByTagName("Content");
             XmlNodeList nones = xmlDoc.GetElementsByTagName("None");
+            XmlNodeList useIISExpress = xmlDoc.GetElementsByTagName("UseIISExpress");
+
+            /*
+                     <WebProjectProperties>
+          <UseIIS>False</UseIIS>
+          <AutoAssignPort>True</AutoAssignPort>
+          <DevelopmentServerPort>49694</DevelopmentServerPort>
+          <DevelopmentServerVPath>/</DevelopmentServerVPath>
+          <IISUrl>http://localhost:49694/</IISUrl>
+             */
 
             if (projectIds.Count == 1) { Console.WriteLine("\t" + projectIds[0].InnerText); projectFile.ProjectId = new Guid(projectIds[0].InnerText); }
             if (outputTypes.Count == 1) { Console.WriteLine("\t" + outputTypes[0].InnerText); projectFile.OutputType = outputTypes[0].InnerText; }
             if (rootNamespaces.Count == 1) { Console.WriteLine("\t" + rootNamespaces[0].InnerText); projectFile.NameSpace = rootNamespaces[0].InnerText; }
             if (assemblyNames.Count == 1) { Console.WriteLine("\t" + assemblyNames[0].InnerText); projectFile.AssemblyName = assemblyNames[0].InnerText; }
             if (targetFrameworkVersions.Count == 1) { Console.WriteLine("\t" + targetFrameworkVersions[0].InnerText); projectFile.FrameworkVersion = targetFrameworkVersions[0].InnerText; }
+            if (useIISExpress.Count == 1) { Console.WriteLine("\t" + useIISExpress[0].InnerText); projectFile.IsWebProject = useIISExpress[0].InnerText.ToLower() == "true"; }
 
             FileInfo packagesFile = null;
             foreach (XmlNode contentNode in contents)
