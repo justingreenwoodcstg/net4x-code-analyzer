@@ -20,7 +20,6 @@ namespace CSTG.CodeAnalyzer
         {
             if (args.Length == 0)
             {
-                AnalyzeFolder("Everything", "everything-untouched", @"C:\projects\state-of-indiana\untouched");
                 AnalyzeFolder("IN_INBIZ", "in-inbiz-untouched", @"C:\projects\state-of-indiana\untouched\IN_INBIZ");
                 AnalyzeFolder("IN_BSD", "in-bsd-untouched", @"C:\projects\state-of-indiana\untouched\IN_BSD");
                 AnalyzeFolder("IN_WebService_BSDService", "in-bsdsvc-untouched", @"C:\projects\state-of-indiana\untouched\IN_WebService_BSDService");
@@ -28,6 +27,7 @@ namespace CSTG.CodeAnalyzer
                 AnalyzeFolder("IN_AdminApp_DOR", "in-admin-dor-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DOR");
                 AnalyzeFolder("IN_AdminApp_DWD", "in-admin-dwd-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DWD");
                 AnalyzeFolder("IN_AdminApp_IPLA", "in-admin-ipla-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_IPLA");
+                AnalyzeFolder("Everything", "everything-untouched", @"C:\projects\state-of-indiana\untouched");
             }
         }
 
@@ -52,7 +52,7 @@ namespace CSTG.CodeAnalyzer
             {
                 // deal with project files!
                 var projectFiles = new List<ProjectFile>();
-                var matchingFiles = Utility.RecursiveFileSearch(rootDirectory, extensions: new string[] { ".csproj" }, skipDirs: new string[] { "bin", "obj", "packages", "Libraries", ".git" });
+                var matchingFiles = Utility.RecursiveFileSearch(rootDirectory, extensions: new string[] { ".csproj", ".sqlproj" }, skipDirs: new string[] { "bin", "obj", "packages", "Libraries", ".git" });
                 foreach (var projFile in matchingFiles)
                 {
                     var projectFile = ProjectFileUtil.Read(projFile);

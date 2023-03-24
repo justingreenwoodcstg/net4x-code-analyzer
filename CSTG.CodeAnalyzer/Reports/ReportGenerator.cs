@@ -7,6 +7,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web;
+using System.Xml.Linq;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace CSTG.CodeAnalyzer.Reports
 {
@@ -39,6 +41,7 @@ namespace CSTG.CodeAnalyzer.Reports
 
             var webProjects = data.Projects.Where(x => x.IsWebProject).OrderBy(p => p.AssemblyName);
             var exeProjects = data.Projects.Where(x => !x.IsWebProject && !x.IsTestProject && x.ProjectType != "Library").OrderBy(p => p.AssemblyName);
+            var databaseProjects = data.Projects.Where(x => x.IsDatabaseProject).OrderBy(p => p.AssemblyName);
             var testProjects = data.Projects.Where(x => x.IsTestProject).OrderBy(p => p.AssemblyName);
             var classLibraries = data.Projects.Where(x => x.ProjectType == "Library").OrderBy(p => p.AssemblyName);
 
@@ -54,6 +57,14 @@ namespace CSTG.CodeAnalyzer.Reports
             {
                 sb.AppendLine("<h1>Executable Applications</h1>");
                 foreach (var proj in exeProjects)
+                {
+                    sb.AppendLine(GenerateProjectReport(proj, data));
+                }
+            }
+            if (databaseProjects.Any())
+            {
+                sb.AppendLine("<h1>Unit Test Projects</h1>");
+                foreach (var proj in databaseProjects)
                 {
                     sb.AppendLine(GenerateProjectReport(proj, data));
                 }
@@ -83,6 +94,11 @@ namespace CSTG.CodeAnalyzer.Reports
             sb.AppendLine("<h1>Assemblies</h1>");
             sb.AppendLine(GenerateCustomLibrariesReport("Custom Libraries", "custom-dlls", true, data));
             sb.AppendLine(GenerateCustomLibrariesReport("Third Party Libraries", "third-party-dlls", false, data));
+
+
+            sb.AppendLine("<h1>File Statistics</h1>");
+            sb.Append(GenerateAllFileStats(data));
+
             /*
             sb.AppendLine("<h1>Entity Relationship Diagram</h1>");
             if (File.Exists("Images/smt-erd.png"))
@@ -119,6 +135,7 @@ namespace CSTG.CodeAnalyzer.Reports
         {
             var webProjects = data.Projects.Where(x => x.IsWebProject).OrderBy(p => p.AssemblyName);
             var exeProjects = data.Projects.Where(x => !x.IsWebProject && !x.IsTestProject && x.ProjectType != "Library").OrderBy(p => p.AssemblyName);
+            var databaseProjects = data.Projects.Where(x => x.IsDatabaseProject).OrderBy(p => p.AssemblyName);
             var testProjects = data.Projects.Where(x => x.IsTestProject).OrderBy(p => p.AssemblyName);
             var classLibraries = data.Projects.Where(x => x.ProjectType == "Library").OrderBy(p => p.AssemblyName);
 
@@ -128,7 +145,8 @@ namespace CSTG.CodeAnalyzer.Reports
                 .AppendLine("\t<ul>")
                 .AppendLine("\t\t<li><a href=\"#nuget_packages\">NuGet Packages</a></li>")
                 .AppendLine("\t\t<li><a href=\"#custom-dlls\">Custom Assemblies</a></li>")
-                .AppendLine("\t\t<li><a href=\"#third-party-dlls\">Third Party Assemblies</a></li>");
+                .AppendLine("\t\t<li><a href=\"#third-party-dlls\">Third Party Assemblies</a></li>")
+                .AppendLine("\t\t<li><a href=\"#file-stats\">File Statistics</a></li>");
             if (webProjects.Any())
             {
                 sb.AppendLine("\t\t<li>Web Applications")
@@ -144,6 +162,16 @@ namespace CSTG.CodeAnalyzer.Reports
                 sb.AppendLine("\t\t<li>Executable Applications")
                     .AppendLine("\t\t\t<ul>");
                 foreach (var proj in exeProjects)
+                {
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
+                }
+                sb.AppendLine("\t\t\t</ul></li>");
+            }
+            if (databaseProjects.Any())
+            {
+                sb.AppendLine("\t\t<li>Database Projects")
+                    .AppendLine("\t\t\t<ul>");
+                foreach (var proj in databaseProjects)
                 {
                     sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
                 }
@@ -206,14 +234,94 @@ namespace CSTG.CodeAnalyzer.Reports
             sb.AppendLine($"\t</ul>");
             return sb.ToString();
         }
+
+        protected static string GenerateAllFileStats(HarvestedData data)
+        {
+            var sb = new StringBuilder();
+
+            sb.AppendLine($"<section id=\"file-stats\" class=\"table\">")
+                .AppendLine($"\t<h2>Project Files</h2>");
+            var assemblies = new Dictionary<string, List<(AssemblyReference, ProjectFile)>>();
+            var all = new List<ProjectItemTypeInfo>();
+            foreach (var project in data.Projects)
+            {
+                foreach (var ftype in project.IncludedFileTypes)
+                {
+                    var match = all.Where(x => x.Classification == ftype.Classification).FirstOrDefault();
+                    if (match == null) all.Add(new ProjectItemTypeInfo
+                    {
+                        Classification = ftype.Classification,
+                        Count = ftype.Count,
+                        FileExtentions = ftype.FileExtentions.OrderBy(x => x).ToList(),
+                        EmptyLines = ftype.EmptyLines,
+                        Lines = ftype.Lines,
+                        SizeInBytes = ftype.SizeInBytes,
+                    });
+                    else
+                    {
+                        if (ftype.Lines.HasValue) match.Lines = (match.Lines ?? 0) + ftype.Lines;
+                        if (ftype.EmptyLines.HasValue) match.EmptyLines = (match.EmptyLines ?? 0) + ftype.EmptyLines;
+                        match.SizeInBytes += ftype.SizeInBytes;
+                        match.Count += ftype.Count;
+                        var missingExts = ftype.FileExtentions.Where(x => !match.FileExtentions.Contains(x)).ToList();
+                        if (missingExts.Count > 0) match.FileExtentions.AddRange(missingExts);
+                    }
+                }
+            }
+            sb.Append(GenerateFileStats(all));
+            return sb.ToString();
+        }
+
+        protected static string GenerateFileStats(List<ProjectItemTypeInfo> fileTypeInfos)
+        {
+            var sb = new StringBuilder();
+
+            if (fileTypeInfos.Count > 0)
+            {
+                sb
+                    .AppendLine($"\t<h3>File Statistics</h3>")
+                    .AppendLine($"\t<table>")
+                    .AppendLine($"\t\t<thead>")
+                    .AppendLine($"\t\t\t<tr>")
+                    .AppendLine($"\t\t\t\t<th>Type</th><th>Extensions</th><th>Count</th><th># Lines</th><th>Size</th>")
+                    .AppendLine($"\t\t\t</tr>")
+                    .AppendLine($"\t\t</thead>")
+                    .AppendLine($"\t\t<tbody>");
+                foreach (var ftype in fileTypeInfos.OrderByDescending(x => x.Count))
+                {
+                    sb.AppendLine($"\t\t\t<tr>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{ftype.Classification.ToString()}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{string.Join(" ", ftype.FileExtentions)}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{ftype.Count} files</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{ftype.Lines}{(ftype.EmptyLines > 0 ? " (+" + ftype.EmptyLines + " empty)" : "")}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{ftype.SizeInBytes} bytes</td>");
+                    sb.AppendLine($"\t\t\t</tr>");
+                }
+                sb.AppendLine($"\t\t</tbody>")
+                    .AppendLine($"\t</table>");
+            }
+
+            return sb.ToString();
+        }
         protected static string GenerateProjectReport(ProjectFile proj, HarvestedData data)
         {
             var sb = new StringBuilder();
 
-
             sb.AppendLine($"<section id=\"prj_{proj.AssemblyName}\" class=\"table\">")
                 .AppendLine($"\t<h2>{proj.AssemblyName} ({proj.FrameworkVersion} - {(proj.ProjectType)})</h2>")
                 .AppendLine($"\t<p>This project has {proj.ConfigFiles.Count} config file(s), {proj.NugetPackages.Count} nuget package registration(s), {proj.AssemblyReferences.Count} assembly reference(s) and {proj.ProjectReferences.Count} project reference(s).</p>");
+
+            sb.Append(GenerateFileStats(proj.IncludedFileTypes));
+
+            if (proj.MissingFiles.Count > 0)
+            {
+                sb.AppendLine($"\t<h3>Missing Files</h3><ul>");
+                foreach (var mf in proj.MissingFiles)
+                {
+                    sb.AppendLine($"\t\t<li>{mf}</li>");
+                }
+                sb.AppendLine($"\t</ul>");
+            }
 
             var connectionStrings = new List<NameValuePair>();
             var settings = new List<NameValuePair>();

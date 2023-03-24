@@ -62,6 +62,7 @@ namespace CSTG.CodeAnalyzer.Model
         public string OutputType { get; set; }
         public bool IsWebProject { get; set; } = false;
         public bool IsTestProject { get; set; } = false;
+        public bool IsDatabaseProject => OutputType?.ToLower() == "database";
 
         public string ProjectType => IsWebProject ? "Web" : (IsTestProject ? "UnitTest" : OutputType);
 
@@ -71,8 +72,55 @@ namespace CSTG.CodeAnalyzer.Model
         public List<ProjectReference> ProjectReferences { get; set; } = new List<ProjectReference>();
         public List<AssemblyReference> AssemblyReferences { get; set; } = new List<AssemblyReference>();
         public List<ConfigFile> ConfigFiles { get; set; } = new List<ConfigFile>();
+        public List<ProjectItemTypeInfo> IncludedFileTypes { get; set; } = new List<ProjectItemTypeInfo>();
+        public List<string> MissingFiles { get; set; } = new List<String>();
     }
-
+    public enum FileClassificationEnum
+    {
+        Unknown = 0,
+        XML,
+        JSON,
+        XAML,
+        HTML,
+        WSDL,
+        XMLSchema,
+        JavaScript,
+        CSharp,
+        CSharpRazorTemplate,
+        RastorGraphics,
+        VectorGraphics,
+        Icon,
+        StyleSheet,
+        CompiledExecutable,
+        CompiledLibrary,
+        ConfigFile,
+        Document,
+        XmlPublishProfile,
+        Text,
+        SQL,
+        ASPNetWebForm,
+        ASPNetApplication,
+        Font,
+        MultiMedia,
+        Resource,
+        SourceMap,
+        PerpetuumSoftReport,
+        CenuityReport,  //crpt
+        CenuityMTC, //cmtc
+        CenuityWML, //cwml
+        CenuityMeta, //cmeta
+        CenuityEntity, //cent
+        CenuityORM, //cormd
+    }
+    public class ProjectItemTypeInfo
+    {
+        public FileClassificationEnum Classification { get; set; } = FileClassificationEnum.Unknown;
+        public List<string> FileExtentions { get; set; } = new List<string>();
+        public int Count { get; set; } = 0;
+        public long SizeInBytes { get; set; } = 0;
+        public long? Lines { get; set; }
+        public long? EmptyLines { get; set; }
+    }
     public class NugetPackage
     {
         public string Id { get; set; }
