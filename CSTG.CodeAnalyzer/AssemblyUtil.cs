@@ -1,11 +1,14 @@
 ﻿using CSTG.CodeAnalyzer.Model;
 using Newtonsoft.Json;
+using NuGet.ContentModel;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -13,6 +16,109 @@ namespace CSTG.CodeAnalyzer
 {
     public class AssemblyUtil
     {
+        public static void TypeCheck(HarvestedData data)
+        {
+            var startupProjects = data.Projects.Where(x => x.IsWebProject).ToList();
+            foreach (var startup in startupProjects)
+            {
+                var asses = new List<Assembly>();
+                var binFolder = Path.Combine(startup.File.Directory.FullName, $".\\bin\\debug\\");
+                binFolder = Directory.Exists(binFolder) ? binFolder : Path.Combine(startup.File.Directory.FullName, $".\\bin\\");
+
+                var domain = AppDomain.CreateDomain("test", null, binFolder, binFolder, true);
+                foreach (var projRef in startup.ProjectReferences)
+                {
+                    var proj = data.Projects.FirstOrDefault(x => x.ProjectId == projRef.ProjectId);
+                    if (proj != null)
+                    {
+                        var assemblyName = proj.AssemblyName;
+                        var assemblyFile = new FileInfo(Path.Combine(binFolder, $"{assemblyName}.dll"));
+                        if (assemblyFile.Exists)
+                        {
+                            System.Reflection.Assembly matchingAssembly = null;
+                            try
+                            {
+                                matchingAssembly = System.Reflection.Assembly.LoadFile(assemblyFile.FullName);
+                                //matchingAssembly = domain.Load(matchingAssembly.GetName());
+                                matchingAssembly.GetReferencedAssemblies();
+                                asses.Add(matchingAssembly);
+                            }
+                            catch { }
+                        }
+                    }
+                    //if (matchingAssembly != null)
+                    //{
+                    //    Console.WriteLine($"{matchingAssembly.GetName().Name} ASSEMBLY FOUND!!!");
+                    //    var isError = false;
+                    //    try
+                    //    {
+                    //        foreach (var type in matchingAssembly.DefinedTypes)
+                    //        {
+                    //            Console.WriteLine($" --->DEF {type.Name}");
+                    //        }
+                    //    }
+                    //    catch (Exception ex)
+                    //    {
+                    //        isError = true;
+                    //        Console.WriteLine($"--X-X-X--DEF ERROR - {ex}");
+                    //    }
+                    //    if (isError)
+                    //    {
+                    //        try
+                    //        {
+                    //            matchingAssembly = System.Reflection.Assembly.LoadFile(assemblyFile.FullName);
+                    //            foreach (var type in matchingAssembly.ExportedTypes)
+                    //            {
+                    //                Console.WriteLine($" --->EXP {type.Name}");
+                    //            }
+                    //        }
+                    //        catch (Exception ex)
+                    //        {
+                    //            Console.WriteLine($"--X-X-X--EXP ERROR - {ex}");
+                    //        }
+                    //    }
+
+                    //}
+                }
+
+
+                foreach (var matchingAssembly in asses)
+                {
+                    Console.WriteLine($"START: {matchingAssembly.GetName().Name}");
+                    try
+                    {
+                        var types = matchingAssembly.GetTypes();
+                        try
+                        {
+                            foreach (var type in types)
+                            {
+                                Console.WriteLine($" ---> {type.Name}");
+                            }
+                        }
+                        catch (ReflectionTypeLoadException ex)
+                        {
+                            //isError = true;
+                            Console.WriteLine($"--X-X-X--1 {ex}");
+                            foreach (Exception exSub in ex.LoaderExceptions)
+                            {
+                                Console.WriteLine(exSub.Message);
+                            }
+
+                        }
+                    }
+                    catch (ReflectionTypeLoadException ex1)
+                    {
+                        Console.WriteLine($"--X-X-X--2 {ex1}");
+                        foreach (Exception exSub in ex1.LoaderExceptions)
+                        {
+                            Console.WriteLine(exSub.Message);
+                        }
+                    }
+                    Console.WriteLine($"END: {matchingAssembly.GetName().Name}");
+                    System.Console.ReadKey();
+                }
+            }
+        }
         public static void EnrichHarvestedDataWithAssemblies(DirectoryInfo rootDir, HarvestedData data)
         {
             var allDllFiles = Utility.RecursiveFileSearch(rootDir, extensions: new string[] { ".dll" }, skipDirs: new string[] { ".git" });

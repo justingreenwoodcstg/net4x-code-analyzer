@@ -73,6 +73,8 @@
     <Compile Include="AssemblyUtil.cs" />
     <Compile Include="Model\ProjectFile.cs" />
     <Compile Include="ConfigFileUtil.cs" />
+    <Compile Include="Model\ReflectionModels.cs" />
+    <Compile Include="Reports\ReflectionReportGenerator.cs" />
     <Compile Include="Reports\ReportGenerator.cs" />
     <Compile Include="SolutionFileUtil.cs" />
     <Compile Include="Utility.cs" />

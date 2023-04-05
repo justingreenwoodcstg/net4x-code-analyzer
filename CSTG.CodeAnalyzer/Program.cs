@@ -9,6 +9,7 @@ using System.Xml;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using CSTG.CodeAnalyzer.Reports;
+using CSTG.CodeAnalyzer.Model.Reflection;
 
 namespace CSTG.CodeAnalyzer
 {
@@ -20,16 +21,31 @@ namespace CSTG.CodeAnalyzer
         {
             if (args.Length == 0)
             {
-                AnalyzeFolder("IN_INBIZ", "in-inbiz-untouched", @"C:\projects\state-of-indiana\untouched\IN_INBIZ");
-                AnalyzeFolder("IN_BSD", "in-bsd-untouched", @"C:\projects\state-of-indiana\untouched\IN_BSD");
-                AnalyzeFolder("IN_WebService_BSDService", "in-bsdsvc-untouched", @"C:\projects\state-of-indiana\untouched\IN_WebService_BSDService");
-                AnalyzeFolder("IN_AdminApp_SOS", "in-admin-sos-untouched", @"C:\projects\state-of-indiana\untouched\IN_AdminApp_SOS");
-                AnalyzeFolder("IN_AdminApp_DOR", "in-admin-dor-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DOR");
-                AnalyzeFolder("IN_AdminApp_DWD", "in-admin-dwd-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DWD");
-                AnalyzeFolder("IN_AdminApp_IPLA", "in-admin-ipla-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_IPLA");
-                AnalyzeFolder("Everything", "everything-untouched", @"C:\projects\state-of-indiana\untouched");
+                //AnalyzeFolder("FIXED_IN_INBIZ", "in-inbiz-fixed", @"C:\git-repos\IN_INBIZ");
+                //AnalyzeFolder("FIXED_IN_BSD", "in-bsd-fixed", @"C:\git-repos\IN_BSD");
+                //AnalyzeFolder("IN_INBIZ", "in-inbiz-untouched", @"C:\projects\state-of-indiana\untouched\IN_INBIZ");
+                //AnalyzeFolder("IN_BSD", "in-bsd-untouched", @"C:\projects\state-of-indiana\untouched\IN_BSD");
+                //AnalyzeFolder("IN_WebService_BSDService", "in-bsdsvc-untouched", @"C:\projects\state-of-indiana\untouched\IN_WebService_BSDService");
+                //AnalyzeFolder("IN_AdminApp_SOS", "in-admin-sos-untouched", @"C:\projects\state-of-indiana\untouched\IN_AdminApp_SOS");
+                //AnalyzeFolder("IN_AdminApp_DOR", "in-admin-dor-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DOR");
+                //AnalyzeFolder("IN_AdminApp_DWD", "in-admin-dwd-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DWD");
+                //AnalyzeFolder("IN_AdminApp_IPLA", "in-admin-ipla-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_IPLA");
+                //AnalyzeFolder("Everything", "everything-untouched", @"C:\projects\state-of-indiana\untouched");
+            }
+            //Console.ReadKey();
+            var currentDir = new DirectoryInfo(Directory.GetCurrentDirectory());
+            var files = currentDir.GetFiles("*.type-details.json");
+            foreach (var file in files)
+            {
+                var title = file.Name.Replace(".type-details.json", "");
+                var reportData = JsonConvert.DeserializeObject<ApplicationAssemblyInfo>(File.ReadAllText(file.FullName));
+                reportData.ReportTitle = title;
+                var reportHtml = ReflectionReportGenerator.GenerateHtml(reportData);
+                File.WriteAllText(title + "-api-details.html", reportHtml);
             }
         }
+
+
 
         public static void AnalyzeFolder(string title, string filePrefix, string directory)
         { 
@@ -141,6 +157,8 @@ namespace CSTG.CodeAnalyzer
             SaveOutputFile(htmlReportName,
                 null,
                 HtmlReportGenerator.GenerateHtml(data));
+
+            AssemblyUtil.TypeCheck(data);
             //Console.ReadLine();
         }
 
