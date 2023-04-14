@@ -45,6 +45,14 @@ namespace CSTG.CodeAnalyzer
             nodes.AddRange(xmlDoc.GetElementsByTagName("Content").OfType<XmlNode>());
             nodes.AddRange(xmlDoc.GetElementsByTagName("Compile").OfType<XmlNode>());
             nodes.AddRange(xmlDoc.GetElementsByTagName("Build").OfType<XmlNode>());
+            nodes.AddRange(xmlDoc.GetElementsByTagName("EntityDeploy").OfType<XmlNode>());
+            nodes.AddRange(xmlDoc.GetElementsByTagName("None").OfType<XmlNode>());
+            if (projectFile.File.Extension == ".rptproj")
+            {
+                nodes.AddRange(xmlDoc.GetElementsByTagName("Report").OfType<XmlNode>());
+                nodes.AddRange(xmlDoc.GetElementsByTagName("DataSource").OfType<XmlNode>());
+                nodes.AddRange(xmlDoc.GetElementsByTagName("DataSet").OfType<XmlNode>());
+            }
             foreach (var item in nodes)
             {
                 var filename = item.Attributes["Include"].Value;
@@ -75,8 +83,12 @@ namespace CSTG.CodeAnalyzer
                     case ".ico": ftype = FileClassificationEnum.Icon; isText = false; break;
                     case ".exe": ftype = FileClassificationEnum.CompiledExecutable; isText = false; break;
                     case ".dll": ftype = FileClassificationEnum.CompiledLibrary; isText = false; break;
+                    case ".swf": ftype = FileClassificationEnum.ShockwaveFlash; isText = false; break;
+                    case ".msi": ftype = FileClassificationEnum.MicrosoftInstallerPackage; isText = false; break;
+                    case ".chm": ftype = FileClassificationEnum.CompiledHtmlHelp; isText = false; break;
                     case ".css": case ".scss": case ".sass": ftype = FileClassificationEnum.StyleSheet; break;
                     case ".config": ftype = FileClassificationEnum.ConfigFile; break;
+                    case ".settings": ftype = FileClassificationEnum.SettingsFile; break;
                     case ".doc": case ".pdf": case ".md": case ".xls": case ".xlsx": case ".docx": ftype = FileClassificationEnum.Document; isText = false; break;
                     case ".txt": ftype = FileClassificationEnum.Text; break;
                     case ".aspx": ftype = FileClassificationEnum.ASPNetWebForm; break;
@@ -86,6 +98,13 @@ namespace CSTG.CodeAnalyzer
                     case ".ogg": case ".mp3": case ".mp4": case ".wav": case ".webm": ftype = FileClassificationEnum.MultiMedia; isText = false; break;
                     case ".resource": case ".resx": ftype = FileClassificationEnum.Resource; break;
                     case ".rst": ftype = FileClassificationEnum.PerpetuumSoftReport; break;
+                    case ".rdl": ftype = FileClassificationEnum.SSRSReport; break;
+                    case ".rds": ftype = FileClassificationEnum.SSRSDataSource; break;
+                    case ".rsd": ftype = FileClassificationEnum.SSRSDataSet; break;
+                    case ".edmx": ftype = FileClassificationEnum.EntityDataModel; break;
+                    case ".ssdl": ftype = FileClassificationEnum.StoreSchemaDefinitionLanguage; break;
+                    case ".msl": ftype = FileClassificationEnum.MappingSpecificationLanguage; break;
+                    case ".csdl": ftype = FileClassificationEnum.ConceptualSchemaDefinitionLanguage; break;
 
                     case ".crpt": ftype = FileClassificationEnum.CenuityReport; break;
                     case ".cmtc": ftype = FileClassificationEnum.CenuityMTC; break;
@@ -111,7 +130,12 @@ namespace CSTG.CodeAnalyzer
             }
 
             if (projectIds.Count == 1) { Console.WriteLine("\t" + projectIds[0].InnerText); projectFile.ProjectId = new Guid(projectIds[0].InnerText); }
-            if (outputTypes.Count == 1) { Console.WriteLine("\t" + outputTypes[0].InnerText); projectFile.OutputType = outputTypes[0].InnerText; }
+            if (outputTypes.Count == 1) { 
+                Console.WriteLine("\t" + outputTypes[0].InnerText); projectFile.OutputType = outputTypes[0].InnerText; 
+            } else if (projFileInfo.Extension == ".rptproj")
+            {
+                projectFile.OutputType = "report";
+            }
             if (rootNamespaces.Count == 1) { Console.WriteLine("\t" + rootNamespaces[0].InnerText); projectFile.NameSpace = rootNamespaces[0].InnerText; }
             if (assemblyNames.Count == 1) { Console.WriteLine("\t" + assemblyNames[0].InnerText); projectFile.AssemblyName = assemblyNames[0].InnerText; }
             if (targetFrameworkVersions.Count == 1) { Console.WriteLine("\t" + targetFrameworkVersions[0].InnerText); projectFile.FrameworkVersion = targetFrameworkVersions[0].InnerText; }
@@ -146,10 +170,12 @@ namespace CSTG.CodeAnalyzer
                 XmlNodeList packages = packagesXml.GetElementsByTagName("package");
                 foreach (XmlNode p in packages)
                 {
+                    Version.TryParse(p.Attributes["version"]?.Value, out Version version);
+
                     projectFile.NugetPackages.Add(new NugetPackage
                     {
                         Id = p.Attributes["id"].Value,
-                        Version = Version.Parse(p.Attributes["version"]?.Value),
+                        Version = version,
                         TargetFramework = p.Attributes["targetFramework"]?.Value,
                     });
                     Console.WriteLine("\t P-> " + p.Attributes["id"].Value);

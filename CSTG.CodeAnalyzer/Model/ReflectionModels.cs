@@ -156,6 +156,17 @@ namespace CSTG.CodeAnalyzer.Model.Reflection
                 return sb.ToString();
             }
         }
+        public string ShortDefinition
+        {
+            get
+            {
+                var sb = new StringBuilder();
+                if (PropertyType.GenericTypes.Count == 1)
+                sb.Append(PropertyType == null ? "void" : PropertyType.ToString()).Append(" ");
+                sb.Append(Name);
+                return sb.ToString();
+            }
+        }
 
         public override string ToString()
         {

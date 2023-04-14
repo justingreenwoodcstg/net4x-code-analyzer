@@ -16,7 +16,8 @@ namespace CSTG.CodeAnalyzer.Reports
 {
     public class ReflectionReportGenerator
     {
-        private const string FileHeader = @"<html>
+        private const string FileHeader = @"<!DOCTYPE html>
+<html lang=""en"">
 	<head>
 		<title>{title}</title>
 {css}
@@ -42,7 +43,7 @@ namespace CSTG.CodeAnalyzer.Reports
             if (data.Routes?.Any() ?? false)
             {
                 sb.AppendLine("<h1>Routes</h1>");
-                sb.AppendLine(GenerateRotueReport(data));
+                sb.AppendLine(GenerateRouteReport(data));
             }
 
             var apiControllers = new List<(CustomTypeInfo, AssemblyTypeInfo)>();
@@ -68,6 +69,7 @@ namespace CSTG.CodeAnalyzer.Reports
                 {
                     sb.AppendLine(GenerateApiControllerReport(ctrl, ass, data));
                 }
+                sb.AppendLine("<div class=\"pagebreak\"></div>");
             }
             if (mvcControllers.Any())
             {
@@ -76,6 +78,7 @@ namespace CSTG.CodeAnalyzer.Reports
                 {
                     sb.AppendLine(GenerateMvcControllerReport(ctrl, ass, data));
                 }
+                sb.AppendLine("<div class=\"pagebreak\"></div>");
             }
             sb.AppendLine(FileFooter);
 
@@ -104,19 +107,6 @@ namespace CSTG.CodeAnalyzer.Reports
                 sb.AppendLine("\t\t<li><a href=\"#routes\">Routes</a></li>");
             if (activities?.Any() ?? false)
                 sb.AppendLine("\t\t<li><a href=\"#activities\">WF Activities</a></li>");
-            if (mvcControllers.Any())
-            {
-                sb.AppendLine("\t\t<li>MVC Controllers")
-                    .AppendLine("\t\t\t<ul>");
-
-
-                foreach (var proj in mvcControllers)
-                {
-                    var shortenedNS = ShortenNS(proj.Item1.Namespace, proj.Item2.Name, " - ");
-                    sb.AppendLine($"\t\t\t\t<li><a href=\"#mvc_{proj.Item1.Namespace}_{proj.Item1.Name}\">{shortenedNS}{proj.Item1.Definition}</a></li>");
-                }
-                sb.AppendLine("\t\t\t</ul></li>");
-            }
             if (apiControllers.Any())
             {
                 sb.AppendLine("\t\t<li>API Controllers")
@@ -125,67 +115,43 @@ namespace CSTG.CodeAnalyzer.Reports
 
                 foreach (var proj in apiControllers)
                 {
-                    var shortenedNS = ShortenNS(proj.Item1.Namespace, proj.Item2.Name, " - ");
-                    sb.AppendLine($"\t\t\t\t<li><a href=\"#api_{proj.Item1.Namespace}_{proj.Item1.Name}\">{shortenedNS}{proj.Item1.Definition}</a></li>");
+                    var skipMethods = new string[] { "Dispose", "Equals", "ToString", "GetType", "GetHashCode", "ExecuteAsync" };
+                    var apiMethods = proj.Item1.PublicMethods.Where(x => !skipMethods.Contains(x.Name));
+                    if (apiMethods.Any())
+                    {
+                        var shortenedNS = ShortenNS(proj.Item1.Namespace, proj.Item2.Name, " - ");
+                        sb.AppendLine($"\t\t\t\t<li><a href=\"#api_{proj.Item1.Namespace}_{proj.Item1.Name}\">{shortenedNS}{HttpUtility.HtmlEncode(proj.Item1.Definition)}</a></li>");
+                    }
                 }
                 sb.AppendLine("\t\t\t</ul></li>");
             }
-            //if (webProjects.Any())
-            //{
-            //    sb.AppendLine("\t\t<li>Web Applications")
-            //        .AppendLine("\t\t\t<ul>");
-            //    foreach (var proj in webProjects)
-            //    {
-            //        sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
-            //    }
-            //    sb.AppendLine("\t\t\t</ul></li>");
-            //}
-            //if (exeProjects.Any())
-            //{
-            //    sb.AppendLine("\t\t<li>Executable Applications")
-            //        .AppendLine("\t\t\t<ul>");
-            //    foreach (var proj in exeProjects)
-            //    {
-            //        sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
-            //    }
-            //    sb.AppendLine("\t\t\t</ul></li>");
-            //}
-            //if (databaseProjects.Any())
-            //{
-            //    sb.AppendLine("\t\t<li>Database Projects")
-            //        .AppendLine("\t\t\t<ul>");
-            //    foreach (var proj in databaseProjects)
-            //    {
-            //        sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
-            //    }
-            //    sb.AppendLine("\t\t\t</ul></li>");
-            //}
-            //if (testProjects.Any())
-            //{
-            //    sb.AppendLine("\t\t<li>Unit Test Projects")
-            //        .AppendLine("\t\t\t<ul>");
-            //    foreach (var proj in testProjects)
-            //    {
-            //        sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
-            //    }
-            //    sb.AppendLine("\t\t\t</ul></li>");
-            //}
-            //if (classLibraries.Any())
-            //{
-            //    sb.AppendLine("\t\t<li>Class Libraries")
-            //    .AppendLine("\t\t\t<ul>");
-            //    foreach (var proj in data.Projects.Where(x => x.ProjectType == "Library").OrderBy(p => p.AssemblyName))
-            //    {
-            //        sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
-            //    }
-            //    sb.AppendLine("\t\t\t</ul></li>");
-            //}
+
+            if (mvcControllers.Any())
+            {
+                sb.AppendLine("\t\t<li>MVC Controllers")
+                    .AppendLine("\t\t\t<ul>");
+
+
+                foreach (var proj in mvcControllers)
+                {
+                    var skipMethods = new string[] { "Dispose", "Equals", "ToString", "GetType", "GetHashCode" };
+                    var mvcMethods = proj.Item1.PublicMethods.Where(x => !skipMethods.Contains(x.Name));
+                    if (mvcMethods.Any())
+                    {
+                        var shortenedNS = ShortenNS(proj.Item1.Namespace, proj.Item2.Name, " - ");
+                        sb.AppendLine($"\t\t\t\t<li><a href=\"#mvc_{proj.Item1.Namespace}_{proj.Item1.Name}\">{shortenedNS}{HttpUtility.HtmlEncode(proj.Item1.Definition)}</a></li>");
+                    }
+                }
+                sb.AppendLine("\t\t\t</ul></li>");
+            }
+
             sb.AppendLine("\t</ul>")
                 .AppendLine("</section>");
+            sb.AppendLine("<div class=\"pagebreak\"></div>");
             return sb.ToString();
         }
 
-        protected static string GenerateRotueReport(ApplicationAssemblyInfo data)
+        protected static string GenerateRouteReport(ApplicationAssemblyInfo data)
         {
             var sb = new StringBuilder();
 
@@ -213,6 +179,8 @@ namespace CSTG.CodeAnalyzer.Reports
                 sb.AppendLine($"\t\t</tbody>")
                     .AppendLine($"\t</table>");
             }
+            sb.AppendLine($"\t</section>");
+            sb.AppendLine("<div class=\"pagebreak\"></div>");
 
             return sb.ToString();
         }
@@ -223,10 +191,10 @@ namespace CSTG.CodeAnalyzer.Reports
             //var skipMethods = new string[] { "Dispose", "Equals", "ToString", "GetType", "GetHashCode", "ExecuteAsync" };
             //var apiMethods = ctrl.PublicMethods.Where(x => !skipMethods.Contains(x.Name));
 
-            sb.AppendLine($"<section id=\"activities\" class=\"table\">")
-                .AppendLine($"\t<h2>Activity List</h2>");
             if (activities.Any())
             {
+                sb.AppendLine($"<section id=\"activities\" class=\"table\">")
+                    .AppendLine($"\t<h2>Activity List</h2>");
                 sb
                     .AppendLine($"\t<table>")
                     .AppendLine($"\t\t<thead>")
@@ -243,7 +211,7 @@ namespace CSTG.CodeAnalyzer.Reports
                     //if (httpAttr != null) verb = httpAttr.Name.Substring(4, httpAttr.Name.Length - 13).ToString();
                     sb.AppendLine($"\t\t\t<tr>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{ShortenNS(activity.Namespace, ass.Name)}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{activity.Definition}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{HttpUtility.HtmlEncode(activity.Definition)}</td>");
 
                     var inputs = new List<ApiProperty>();
                     var outputs = new List<ApiProperty>();
@@ -263,12 +231,24 @@ namespace CSTG.CodeAnalyzer.Reports
                             inputs.Add(p);
                         }
                     }
-                    sb.AppendLine($"\t\t\t\t<td>{string.Join("<br/>", inputs.Select(x => x.Definition))}</td>");
-                    sb.AppendLine($"\t\t\t\t<td>{string.Join("<br/>", outputs.Select(x => x.Definition))}</td>");
+
+                    var funkify = new Func<ApiProperty, string>(p =>
+                    {
+                        var _sb = new StringBuilder().Append("<span class=\"data-type\">");
+                        if (p.PropertyType?.GenericTypes?.Count == 1) _sb.Append(HttpUtility.HtmlEncode(p.PropertyType.GenericTypes[0].Definition));
+                        else _sb.Append(p.PropertyType == null ? "void" : p.PropertyType.ToString());
+                        _sb.Append("</span> ").Append(HttpUtility.HtmlEncode(p.Name));
+                        return _sb.ToString();
+                    });
+
+                    sb.AppendLine($"\t\t\t\t<td>{string.Join("<br/>", inputs.Select(x => funkify(x)))}</td>");
+                    sb.AppendLine($"\t\t\t\t<td>{string.Join("<br/>", outputs.Select(x => funkify(x)))}</td>");
                     sb.AppendLine($"\t\t\t</tr>");
                 }
                 sb.AppendLine($"\t\t</tbody>")
                     .AppendLine($"\t</table>");
+                sb.AppendLine($"\t</section>");
+                sb.AppendLine("<div class=\"pagebreak\"></div>");
             }
 
             return sb.ToString();
@@ -281,10 +261,10 @@ namespace CSTG.CodeAnalyzer.Reports
             var skipMethods = new string[] { "Dispose", "Equals", "ToString", "GetType", "GetHashCode" };
             var mvcMethods = ctrl.PublicMethods.Where(x => !skipMethods.Contains(x.Name));
 
-            sb.AppendLine($"<section id=\"mvc_{ctrl.Namespace}_{ctrl.Definition}\" class=\"table\">")
-                .AppendLine($"\t<h2>{ctrl.Namespace} - {ctrl.Definition}</h2>");
             if (mvcMethods.Any())
             {
+                sb.AppendLine($"<section id=\"mvc_{ctrl.Namespace}_{ctrl.Name}\" class=\"table\">")
+                    .AppendLine($"\t<h2>{ctrl.Namespace} - {HttpUtility.HtmlEncode(ctrl.Definition)}</h2>");
                 sb
                     .AppendLine($"\t<table>")
                     .AppendLine($"\t\t<thead>")
@@ -302,12 +282,13 @@ namespace CSTG.CodeAnalyzer.Reports
                     sb.AppendLine($"\t\t\t<tr>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{verb}</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{mvcMethod.Name}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{HttpUtility.HtmlEncode(mvcMethod.Definition)}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{string.Join(", ", mvcMethod.Attributes.Select(x => x.Name))}</td>");
+                    sb.AppendLine($"\t\t\t\t<td>{HttpUtility.HtmlEncode(mvcMethod.Definition)}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{string.Join(", ", mvcMethod.Attributes.Select(x => x.Name.EndsWith("Attribute") ? x.Name.Substring(0, x.Name.Length-9) : x.Name))}</td>");
                     sb.AppendLine($"\t\t\t</tr>");
                 }
                 sb.AppendLine($"\t\t</tbody>")
                     .AppendLine($"\t</table>");
+                sb.AppendLine($"\t</section>");
             }
 
             return sb.ToString();
@@ -319,10 +300,10 @@ namespace CSTG.CodeAnalyzer.Reports
             var skipMethods = new string[] { "Dispose", "Equals", "ToString", "GetType", "GetHashCode", "ExecuteAsync" };
             var apiMethods = ctrl.PublicMethods.Where(x => !skipMethods.Contains(x.Name));
 
-            sb.AppendLine($"<section id=\"api_{ctrl.Namespace}_{ctrl.Definition}\" class=\"table\">")
-                .AppendLine($"\t<h2>{ctrl.Namespace} - {ctrl.Definition}</h2>");
             if (apiMethods.Any())
             {
+                sb.AppendLine($"<section id=\"api_{ctrl.Namespace}_{ctrl.Name}\" class=\"table\">")
+                    .AppendLine($"\t<h2>{ctrl.Namespace} - {HttpUtility.HtmlEncode(ctrl.Definition)}</h2>");
                 sb
                     .AppendLine($"\t<table>")
                     .AppendLine($"\t\t<thead>")
@@ -340,11 +321,12 @@ namespace CSTG.CodeAnalyzer.Reports
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{verb}</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{apiMethod.Name}</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{HttpUtility.HtmlEncode(apiMethod.Definition)}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{string.Join(", ", apiMethod.Attributes.Select(x=>x.Name))}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{string.Join(", ", apiMethod.Attributes.Select(x => x.Name.EndsWith("Attribute") ? x.Name.Substring(0, x.Name.Length - 9) : x.Name))}</td>");
                     sb.AppendLine($"\t\t\t</tr>");
                 }
                 sb.AppendLine($"\t\t</tbody>")
                     .AppendLine($"\t</table>");
+                sb.AppendLine($"\t</section>");
             }
 
             return sb.ToString();
@@ -357,6 +339,7 @@ namespace CSTG.CodeAnalyzer.Reports
             if (suffix != null && shortenedNS.Length > 0) shortenedNS += suffix;
             return shortenedNS;
         }
+
 
         #region CSS
         public const string CssBlock = @"
@@ -387,13 +370,21 @@ namespace CSTG.CodeAnalyzer.Reports
             white-space: nowrap;
         }
 
+        .overflow-wrap {
+            overflow-wrap: anywhere; 
+        }
+
+        .break-word {
+            overflow-wrap: break-word; 
+            
+        }
+
         .centered {
             text-align: center;
             white-space: nowrap;
         }
 
         .column-icon {
-            cursor: hand;
             cursor: pointer;
         }
 
@@ -409,13 +400,23 @@ namespace CSTG.CodeAnalyzer.Reports
             background-color: yellow !important;
         }
 
+        .data-type {
+            font-style: italic;
+            background-color: rgba(0,234,234,.1);
+            color: darkgreen;
+            padding-left: 4px;
+            padding-right: 4px;
+        }
+
         /* tables */
         .table table {
             border-collapse: collapse;
             margin: 25px 0;
             font-size: 0.9em;
             font-family: sans-serif;
-            min-width: 400px;
+            /*min-width: 400px;
+            max-width: 1075px;*/
+            width: 100%;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
         }
 
@@ -509,6 +510,12 @@ namespace CSTG.CodeAnalyzer.Reports
         .error-tag {
           background: red;
           color: white;
+        }
+        @media print {
+            .pagebreak {
+                clear: both;
+                page-break-after: always;
+            }
         }
     </style>";
         #endregion

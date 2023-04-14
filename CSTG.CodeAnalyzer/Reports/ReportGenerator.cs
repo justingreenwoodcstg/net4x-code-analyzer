@@ -16,7 +16,8 @@ namespace CSTG.CodeAnalyzer.Reports
     {
         public static bool UseCheckConstraintsInsteadOfEnums { get; set; } = true;
 
-        private const string FileHeader = @"<html>
+        private const string FileHeader = @"<!DOCTYPE html>
+<html lang=""en"">
 	<head>
 		<title>{title}</title>
 {css}
@@ -40,8 +41,9 @@ namespace CSTG.CodeAnalyzer.Reports
             sb.AppendLine(GenerateTOC(data));
 
             var webProjects = data.Projects.Where(x => x.IsWebProject).OrderBy(p => p.AssemblyName);
-            var exeProjects = data.Projects.Where(x => !x.IsWebProject && !x.IsTestProject && x.ProjectType != "Library").OrderBy(p => p.AssemblyName);
+            var exeProjects = data.Projects.Where(x => !x.IsWebProject && !x.IsTestProject && !x.IsDatabaseProject && !x.IsReportProject && x.ProjectType != "Library").OrderBy(p => p.AssemblyName);
             var databaseProjects = data.Projects.Where(x => x.IsDatabaseProject).OrderBy(p => p.AssemblyName);
+            var reportProjects = data.Projects.Where(x => x.IsReportProject).OrderBy(p => p.AssemblyName);
             var testProjects = data.Projects.Where(x => x.IsTestProject).OrderBy(p => p.AssemblyName);
             var classLibraries = data.Projects.Where(x => x.ProjectType == "Library").OrderBy(p => p.AssemblyName);
 
@@ -65,6 +67,14 @@ namespace CSTG.CodeAnalyzer.Reports
             {
                 sb.AppendLine("<h1>Unit Test Projects</h1>");
                 foreach (var proj in databaseProjects)
+                {
+                    sb.AppendLine(GenerateProjectReport(proj, data));
+                }
+            }
+            if (reportProjects.Any())
+            {
+                sb.AppendLine("<h1>Report Projects</h1>");
+                foreach (var proj in reportProjects)
                 {
                     sb.AppendLine(GenerateProjectReport(proj, data));
                 }
@@ -134,26 +144,24 @@ namespace CSTG.CodeAnalyzer.Reports
         protected static string GenerateTOC(HarvestedData data)
         {
             var webProjects = data.Projects.Where(x => x.IsWebProject).OrderBy(p => p.AssemblyName);
-            var exeProjects = data.Projects.Where(x => !x.IsWebProject && !x.IsTestProject && x.ProjectType != "Library").OrderBy(p => p.AssemblyName);
+            var exeProjects = data.Projects.Where(x => !x.IsWebProject && !x.IsTestProject && !x.IsDatabaseProject && !x.IsReportProject && x.ProjectType != "Library").OrderBy(p => p.AssemblyName);
             var databaseProjects = data.Projects.Where(x => x.IsDatabaseProject).OrderBy(p => p.AssemblyName);
+            var reportProjects = data.Projects.Where(x => x.IsReportProject).OrderBy(p => p.AssemblyName);
             var testProjects = data.Projects.Where(x => x.IsTestProject).OrderBy(p => p.AssemblyName);
             var classLibraries = data.Projects.Where(x => x.ProjectType == "Library").OrderBy(p => p.AssemblyName);
 
             var sb = new StringBuilder();
             sb.AppendLine("<section class=\"toc\">")
                 .AppendLine("\t<h2>Table of Contents</h2>")
-                .AppendLine("\t<ul>")
-                .AppendLine("\t\t<li><a href=\"#nuget_packages\">NuGet Packages</a></li>")
-                .AppendLine("\t\t<li><a href=\"#custom-dlls\">Custom Assemblies</a></li>")
-                .AppendLine("\t\t<li><a href=\"#third-party-dlls\">Third Party Assemblies</a></li>")
-                .AppendLine("\t\t<li><a href=\"#file-stats\">File Statistics</a></li>");
+                .AppendLine("\t<ul>");
             if (webProjects.Any())
             {
                 sb.AppendLine("\t\t<li>Web Applications")
                     .AppendLine("\t\t\t<ul>");
                 foreach (var proj in webProjects)
                 {
-                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
+                    var solX = proj.SolutionFiles.Count == 0 ? " <span class=\"tag\">Orphan</span>" : "";
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a>{solX}</li>");
                 }
                 sb.AppendLine("\t\t\t</ul></li>");
             }
@@ -163,7 +171,8 @@ namespace CSTG.CodeAnalyzer.Reports
                     .AppendLine("\t\t\t<ul>");
                 foreach (var proj in exeProjects)
                 {
-                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
+                    var solX = proj.SolutionFiles.Count == 0 ? " <span class=\"tag\">Orphan</span>" : "";
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a>{solX}</li>");
                 }
                 sb.AppendLine("\t\t\t</ul></li>");
             }
@@ -173,7 +182,19 @@ namespace CSTG.CodeAnalyzer.Reports
                     .AppendLine("\t\t\t<ul>");
                 foreach (var proj in databaseProjects)
                 {
-                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
+                    var solX = proj.SolutionFiles.Count == 0 ? " <span class=\"tag\">Orphan</span>" : "";
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a>{solX}</li>");
+                }
+                sb.AppendLine("\t\t\t</ul></li>");
+            }
+            if (reportProjects.Any())
+            {
+                sb.AppendLine("\t\t<li>Report Projects")
+                    .AppendLine("\t\t\t<ul>");
+                foreach (var proj in reportProjects)
+                {
+                    var solX = proj.SolutionFiles.Count == 0 ? " <span class=\"tag\">Orphan Project</span>" : "";
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.File.Name}\">{proj.File.Name}  ({(proj.ProjectType)})</a>{solX}</li>");
                 }
                 sb.AppendLine("\t\t\t</ul></li>");
             }
@@ -183,7 +204,8 @@ namespace CSTG.CodeAnalyzer.Reports
                     .AppendLine("\t\t\t<ul>");
                 foreach (var proj in testProjects)
                 {
-                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
+                    var solX = proj.SolutionFiles.Count == 0 ? " <span class=\"tag\">Orphan</span>" : "";
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a>{solX}</li>");
                 }
                 sb.AppendLine("\t\t\t</ul></li>");
             }
@@ -193,12 +215,18 @@ namespace CSTG.CodeAnalyzer.Reports
                 .AppendLine("\t\t\t<ul>");
                 foreach (var proj in data.Projects.Where(x => x.ProjectType == "Library").OrderBy(p => p.AssemblyName))
                 {
-                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a></li>");
+                    var solX = proj.SolutionFiles.Count == 0 ? " <span class=\"tag\">Orphan</span>" : "";
+                    sb.AppendLine($"\t\t\t\t<li><a href=\"#prj_{proj.AssemblyName}\">{proj.AssemblyName}  ({proj.FrameworkVersion} - {(proj.ProjectType)})</a>{solX}</li>");
                 }
                 sb.AppendLine("\t\t\t</ul></li>");
             }
+            sb.AppendLine("\t\t<li><a href=\"#nuget_packages\">NuGet Packages</a></li>")
+                .AppendLine("\t\t<li><a href=\"#custom-dlls\">Custom Assemblies</a></li>")
+                .AppendLine("\t\t<li><a href=\"#third-party-dlls\">Third Party Assemblies</a></li>")
+                .AppendLine("\t\t<li><a href=\"#file-stats\">File Statistics</a></li>");
             sb.AppendLine("\t</ul>")
                 .AppendLine("</section>");
+            sb.AppendLine("<div class=\"pagebreak\"></div>");
             return sb.ToString();
         }
         protected static string GenerateHierarchy(ProjectFile rootProject, HarvestedData data)
@@ -269,6 +297,7 @@ namespace CSTG.CodeAnalyzer.Reports
                 }
             }
             sb.Append(GenerateFileStats(all));
+            sb.AppendLine($"</section>");
             return sb.ToString();
         }
 
@@ -291,7 +320,7 @@ namespace CSTG.CodeAnalyzer.Reports
                 {
                     sb.AppendLine($"\t\t\t<tr>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{ftype.Classification.ToString()}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{string.Join(" ", ftype.FileExtentions)}</td>");
+                    sb.AppendLine($"\t\t\t\t<td>{string.Join(" ", ftype.FileExtentions)}</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{ftype.Count} files</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{ftype.Lines}{(ftype.EmptyLines > 0 ? " (+" + ftype.EmptyLines + " empty)" : "")}</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{ftype.SizeInBytes} bytes</td>");
@@ -307,8 +336,11 @@ namespace CSTG.CodeAnalyzer.Reports
         {
             var sb = new StringBuilder();
 
-            sb.AppendLine($"<section id=\"prj_{proj.AssemblyName}\" class=\"table\">")
-                .AppendLine($"\t<h2>{proj.AssemblyName} ({proj.FrameworkVersion} - {(proj.ProjectType)})</h2>")
+            string projName = proj.AssemblyName ?? proj.File.Name;
+
+            var solX = proj.SolutionFiles.Count == 0 ? " <span class=\"tag\">Orphan</span>" : "";
+            sb.AppendLine($"<section id=\"prj_{projName}\" class=\"table\">")
+                .AppendLine($"\t<h2>{projName} ({proj.FrameworkVersion ?? "N/A"} - {(proj.ProjectType)}){solX}</h2>")
                 .AppendLine($"\t<p>This project has {proj.ConfigFiles.Count} config file(s), {proj.NugetPackages.Count} nuget package registration(s), {proj.AssemblyReferences.Count} assembly reference(s) and {proj.ProjectReferences.Count} project reference(s).</p>");
 
             sb.Append(GenerateFileStats(proj.IncludedFileTypes));
@@ -334,6 +366,19 @@ namespace CSTG.CodeAnalyzer.Reports
             }
 
             Action<List<NameValuePair>,string> renderDictionary = null;
+            var breakIt = new Func<string, string>((s) => 
+            {
+                var _sb = new StringBuilder();
+                int x = 0;
+                for (var i = 0;i<s.Length; i++)
+                {
+                    if (char.IsWhiteSpace(s[i])) x = 0;
+                    else x++;
+                    if (x > 100) { _sb.AppendLine(); x = 0; }
+                    _sb.Append(s[i]);
+                }
+                return _sb.ToString(); 
+            });
             renderDictionary = new Action<List<NameValuePair>, string>((dict, name) =>
             {
                 if (dict.Count > 0)
@@ -351,7 +396,7 @@ namespace CSTG.CodeAnalyzer.Reports
                     {
                         sb.AppendLine($"\t\t\t<tr>");
                         sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{HttpUtility.HtmlEncode(cs.Name)}</td>");
-                        sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{HttpUtility.HtmlEncode(cs.Value)}</td>");
+                        sb.AppendLine($"\t\t\t\t<td class=\"overflow-wrap\">{HttpUtility.HtmlEncode(breakIt(cs.Value))}</td>");
                         sb.AppendLine($"\t\t\t</tr>");
                     }
                     sb.AppendLine($"\t\t</tbody>")
@@ -437,9 +482,9 @@ namespace CSTG.CodeAnalyzer.Reports
                     sb.AppendLine($"\t\t\t<tr>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{assRef.Name}</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{assRef.VersionString ?? assRef.FileLocation?.VersionString}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{assRef.HintPath}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{((assRef.FileLocation?.HintIsValid ?? false) ? "Yes" : "No")}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap warning-text\">{status}</td>");
+                    sb.AppendLine($"\t\t\t\t<td>{assRef.HintPath}</td>");
+                    sb.AppendLine($"\t\t\t\t<td>{((assRef.FileLocation?.HintIsValid ?? false) ? "Yes" : "No")}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{status}</td>");
                     sb.AppendLine($"\t\t\t</tr>");
                 }
                 sb.AppendLine($"\t\t</tbody>")
@@ -453,8 +498,8 @@ namespace CSTG.CodeAnalyzer.Reports
                     .AppendLine($"\t<table>")
                     .AppendLine($"\t\t<thead>")
                     .AppendLine($"\t\t\t<tr>")
-                    .AppendLine($"\t\t\t\t<th>Name</th><th>Version</th><th>Age</th><th>Published</th><th>Latest Version</th><th>Latest Published</th>")
-                    .AppendLine($"\t\t\t\t<th>Author</th><th>Description</th><th>URLs</th><th>DLLs Referenced In Project</th>")
+                    .AppendLine($"\t\t\t\t<th>Name</th><th>Version</th><th>Published</th><th>Latest Version</th><th>Latest Published</th>")
+                    .AppendLine($"\t\t\t\t<th>Author</th><th>Description</th><th>DLLs Referenced In Project</th>")
                     .AppendLine($"\t\t\t</tr>")
                     .AppendLine($"\t\t</thead>")
                     .AppendLine($"\t\t<tbody>");
@@ -472,25 +517,23 @@ namespace CSTG.CodeAnalyzer.Reports
                         var latestPublishDate = pkg.LatestVersionDetails.DatePublished.Value;
                         var isDateValid = publishDate.Year > 2000;
                         var isLatestDateValid = latestPublishDate.Year > 2000;
-
-                        if (isDateValid) sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{((DateTime.Now - publishDate).TotalDays / 365.0).ToString("0.0#")} yrs</td>"); else sb.AppendLine("<td>Age Unknown</td>");
-                        if (isDateValid) sb.AppendLine($"\t\t\t\t<td>{publishDate.Date.ToShortDateString()}</td>"); else sb.AppendLine("<td>&nbsp;</td>");
-
-                        sb.AppendLine($"\t\t\t\t<td>{pkg.LatestVersionDetails.VersionString}</td>");
-                        if (isLatestDateValid) sb.AppendLine($"\t\t\t\t<td>{latestPublishDate.Date.ToShortDateString()}</td>"); else sb.AppendLine("<td>&nbsp;</td>");
-
-                        sb.AppendLine($"\t\t\t\t<td>{pkg.VersionDetails.Authors}</td>");
-                        sb.AppendLine($"\t\t\t\t<td>{pkg.VersionDetails.Summary ?? pkg.VersionDetails.Description}</td>");
-
                         List<string> urls = new List<string>();
                         if (!string.IsNullOrWhiteSpace(pkg.VersionDetails.ProjectUrl)) urls.Add($"<a href=\"{pkg.VersionDetails.ProjectUrl}\">Project</a>");
                         if (!string.IsNullOrWhiteSpace(pkg.VersionDetails.PackageUrl)) urls.Add($"<a href=\"{pkg.VersionDetails.PackageUrl}\">Package</a>");
 
-                        sb.AppendLine($"\t\t\t\t<td>{string.Join(" ", urls)}</td>");
+                        var age = isDateValid ? $"({((DateTime.Now - publishDate).TotalDays / 365.0).ToString("0.0#")} yrs)" : "Age Unknown";
+                        if (isDateValid) sb.AppendLine($"\t\t\t\t<td>{publishDate.Date.ToShortDateString()} {age}</td>"); else sb.AppendLine("<td>&nbsp;</td>");
+
+                        sb.AppendLine($"\t\t\t\t<td>{pkg.LatestVersionDetails.VersionString}</td>");
+                        if (isLatestDateValid) sb.AppendLine($"\t\t\t\t<td>{latestPublishDate.Date.ToShortDateString()}</td>"); else sb.AppendLine("<td>&nbsp;</td>");
+
+                        sb.AppendLine($"\t\t\t\t<td class=\"overflow-wrap\">{pkg.VersionDetails.Authors}</td>");
+                        sb.AppendLine($"\t\t\t\t<td class=\"overflow-wrap\">{pkg.VersionDetails.Summary ?? pkg.VersionDetails.Description} {string.Join(" ", urls)}</td>");
+
                     }
                     else
                     {
-                        sb.AppendLine("\t\t\t\t<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
+                        sb.AppendLine("\t\t\t\t<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
                     }
                     sb.AppendLine($"\t\t\t\t<td>{string.Join(" ", assemblies.Select(x => x.Name))}</td>");
 
@@ -500,9 +543,12 @@ namespace CSTG.CodeAnalyzer.Reports
                     .AppendLine($"\t</table>");
             }
 
-            sb.Append(GenerateHierarchy(proj, data));
+            if (!proj.IsReportProject && !proj.IsDatabaseProject)
+                sb.Append(GenerateHierarchy(proj, data));
 
             sb.AppendLine("</section>");
+
+            sb.AppendLine("<div class=\"pagebreak\"></div>");
             return sb.ToString();
         }
         protected static string GenerateNuGetPackagesReport(HarvestedData data)
@@ -532,8 +578,8 @@ namespace CSTG.CodeAnalyzer.Reports
                     .AppendLine($"\t<table>")
                     .AppendLine($"\t\t<thead>")
                     .AppendLine($"\t\t\t<tr>")
-                    .AppendLine($"\t\t\t\t<th>Name</th><th>Versions</th><th>Age</th><th>Published</th><th>Latest Version</th><th>Latest Published</th>")
-                    .AppendLine($"\t\t\t\t<th>Author</th><th>Description</th><th>URLs</th><th>Projects</th>")
+                    .AppendLine($"\t\t\t\t<th>Name</th><th>Versions</th><th>Published</th><th>Latest Version</th><th>Latest Published</th>")
+                    .AppendLine($"\t\t\t\t<th>Author</th><th>Description</th><th>Projects</th>")
                     .AppendLine($"\t\t\t</tr>")
                     .AppendLine($"\t\t</thead>")
                     .AppendLine($"\t\t<tbody>");
@@ -559,25 +605,22 @@ namespace CSTG.CodeAnalyzer.Reports
                         var latestPublishDate = pkg.LatestVersionDetails.DatePublished.Value;
                         var isDateValid = publishDate.Year > 2000;
                         var isLatestDateValid = latestPublishDate.Year > 2000;
-
-                        if (isDateValid) sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{((DateTime.Now - publishDate).TotalDays / 365.0).ToString("0.0#")} yrs</td>"); else sb.AppendLine("<td>Age Unknown</td>");
-                        if (isDateValid) sb.AppendLine($"\t\t\t\t<td>{publishDate.Date.ToShortDateString()}</td>"); else sb.AppendLine("<td>&nbsp;</td>");
-
-                        sb.AppendLine($"\t\t\t\t<td>{pkg.LatestVersionDetails.VersionString}</td>");
-                        if (isLatestDateValid) sb.AppendLine($"\t\t\t\t<td>{latestPublishDate.Date.ToShortDateString()}</td>"); else sb.AppendLine("<td>&nbsp;</td>");
-
-                        sb.AppendLine($"\t\t\t\t<td>{pkg.VersionDetails.Authors}</td>");
-                        sb.AppendLine($"\t\t\t\t<td>{pkg.VersionDetails.Summary ?? pkg.VersionDetails.Description}</td>");
-
                         List<string> urls = new List<string>();
                         if (!string.IsNullOrWhiteSpace(pkg.VersionDetails.ProjectUrl)) urls.Add($"<a href=\"{pkg.VersionDetails.ProjectUrl}\">Project</a>");
                         if (!string.IsNullOrWhiteSpace(pkg.VersionDetails.PackageUrl)) urls.Add($"<a href=\"{pkg.VersionDetails.PackageUrl}\">Package</a>");
 
-                        sb.AppendLine($"\t\t\t\t<td>{string.Join(" ", urls)}</td>");
+                        var age = isDateValid ? $"({((DateTime.Now - publishDate).TotalDays / 365.0).ToString("0.0#")} yrs)" : "Age Unknown";
+                        if (isDateValid) sb.AppendLine($"\t\t\t\t<td>{publishDate.Date.ToShortDateString()} {age}</td>"); else sb.AppendLine("<td>&nbsp;</td>");
+
+                        sb.AppendLine($"\t\t\t\t<td>{pkg.LatestVersionDetails.VersionString}</td>");
+                        if (isLatestDateValid) sb.AppendLine($"\t\t\t\t<td>{latestPublishDate.Date.ToShortDateString()}</td>"); else sb.AppendLine("<td>&nbsp;</td>");
+
+                        sb.AppendLine($"\t\t\t\t<td class=\"overflow-wrap\">{pkg.VersionDetails.Authors}</td>");
+                        sb.AppendLine($"\t\t\t\t<td class=\"overflow-wrap\">{pkg.VersionDetails.Summary ?? pkg.VersionDetails.Description} {string.Join(" ", urls)}</td>");
                     }
                     else
                     {
-                        sb.AppendLine("\t\t\t\t<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
+                        sb.AppendLine("\t\t\t\t<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
                     }
                     sb.AppendLine($"\t\t\t\t<td>{string.Join(" ", projects.Select(x => x.AssemblyName))}</td>");
 
@@ -588,6 +631,7 @@ namespace CSTG.CodeAnalyzer.Reports
             }
             sb.AppendLine($"</section>");
 
+            sb.AppendLine("<div class=\"pagebreak\"></div>");
             return sb.ToString();
         }
         protected static string GenerateCustomLibrariesReport(string name, string anchor, bool isCustom, HarvestedData data)
@@ -673,10 +717,10 @@ namespace CSTG.CodeAnalyzer.Reports
                     sb.AppendLine($"\t\t\t<tr>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{assRef.Name}</td>");
                     sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{string.Join(" ",versions)}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{assRef.HintPath}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{((assRef.FileLocation?.HintIsValid ?? false) ? "Yes" : "No")}</td>");
+                    sb.AppendLine($"\t\t\t\t<td>{assRef.HintPath}</td>");
+                    sb.AppendLine($"\t\t\t\t<td>{((assRef.FileLocation?.HintIsValid ?? false) ? "Yes" : "No")}</td>");
                     sb.AppendLine($"\t\t\t\t<td>{string.Join(" ", projects.Select(x => x.AssemblyName))}</td>");
-                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap warning-text\">{status}</td>");
+                    sb.AppendLine($"\t\t\t\t<td class=\"nowrap\">{status}</td>");
                     sb.AppendLine($"\t\t\t</tr>");
                 }
                 sb.AppendLine($"\t\t</tbody>")
@@ -684,197 +728,9 @@ namespace CSTG.CodeAnalyzer.Reports
             }
             sb.AppendLine($"</section>");
 
+            sb.AppendLine("<div class=\"pagebreak\"></div>");
             return sb.ToString();
         }
-
-        //protected static string GenerateTOC(HarvestedData data)
-        //{
-        //    var tables = dbInfo.Tables.OrderBy(x => x.Name);
-        //    var views = dbInfo.Views.OrderBy(x => x.Name);
-        //    var enums = dbInfo.Enums.OrderBy(x => x.Name);
-        //    var sb = new StringBuilder();
-        //    sb.AppendLine("<section class=\"toc\">")
-        //        .AppendLine("\t<h2>Table of Contents</h2>")
-        //        .AppendLine("\t<ul>")
-        //        .AppendLine("\t\t<li><a href=\"#erd\">Entity Relationship Diagram</a></li>")
-        //        .AppendLine("\t\t<li>Tables</li>")
-        //        .AppendLine("\t\t\t<ul>");
-        //    foreach (var tbl in tables)
-        //    {
-        //        sb.AppendLine($"\t\t\t\t<li><a href=\"#tbl_{tbl.NameInCamelCase}\">{tbl.SheetName} ({tbl.Name})</a></li>");
-        //    }
-        //    sb.AppendLine("\t\t\t</ul>")
-        //        .AppendLine("\t\t<li>Views</li>")
-        //        .AppendLine("\t\t\t<ul>");
-        //    foreach (var vw in views)
-        //    {
-        //        sb.AppendLine($"\t\t\t\t<li><a href=\"#vw_{vw.NameInCamelCase}\">{vw.NameInPascalCase} ({vw.Name})</a></li>");
-        //    }
-        //    sb.AppendLine("\t\t\t</ul>")
-        //        .AppendLine("\t\t<li>Enums (Check Constraints)</li>")
-        //        .AppendLine("\t\t\t<ul>");
-        //    foreach (var enx in enums)
-        //    {
-        //        sb.AppendLine($"\t\t\t\t<li><a href=\"#enum_{enx.NameInCamelCase}\">{enx.Name}</a></li>");
-        //    }
-        //    //enum_{enx.NameInCamelCase}
-        //    sb.AppendLine("\t\t\t</ul>")
-        //        .AppendLine("\t\t</li>")
-        //        .AppendLine("\t</ul>")
-        //        .AppendLine("</section>");
-        //    return sb.ToString();
-        //}
-
-        //protected static string GenerateTableReport(TableInfo tbl, DatabaseInfo dbInfo)
-        //{
-        //    var sb = new StringBuilder();
-        //    sb.AppendLine($"<section id=\"tbl_{tbl.NameInCamelCase}\" class=\"table\">")
-        //        .AppendLine($"\t<h2>{tbl.SheetName} ({tbl.Name})</h2>")
-        //        .AppendLine($"\t<p>{tbl.Comments}</p>")
-        //        .AppendLine($"\t<table>")
-        //        .AppendLine($"\t\t<thead>")
-        //        .AppendLine($"\t\t\t<tr>")
-        //        .AppendLine($"\t\t\t\t<th>&nbsp;</th><th>Column</th><th>Data Type</th><th>Required?</th><th>Validation</th><th>References</th><th>Description</th>")
-        //        .AppendLine($"\t\t\t</tr>")
-        //        .AppendLine($"\t\t</thead>")
-        //        .AppendLine($"\t\t<tbody>");
-        //    foreach (var col in tbl.Columns)
-        //    {
-        //        var fkType = tbl.GetFkType(col);
-        //        var fkRef = tbl.GetFkReference(col);
-        //        var enumType = dbInfo.Enums.FirstOrDefault(x => x.Name == col.DataType.TrimEnd('[', ']'));
-        //        sb.AppendLine($"\t\t\t<tr>");
-
-        //        sb.Append($"\t\t\t\t<td class=\"centered column-icon\">");
-        //        if (col.IsPrimaryKey) sb.Append(" <span title=\"primary key\">&#128273;</span>");
-        //        else if (col.IsUnique) sb.Append(" <span title=\"unique\">&#10052;</span>");
-        //        if (fkType == RelationshipType.OneToMany) sb.Append(" 1&rightarrow;&infin;");
-        //        else if (fkType == RelationshipType.OneToOne) sb.Append(" 1&rightarrow;1");
-        //        else if (fkType == RelationshipType.ZeroToOne) sb.Append(" 0&rightarrow;1");
-        //        else if (fkType == RelationshipType.ZeroToMany) sb.Append(" 0&rightarrow;&infin;");
-        //        sb.AppendLine($" </td>");
-
-        //        sb.AppendLine($"\t\t\t\t<td>{col.Name}</td>");
-        //        if (enumType != null) sb.AppendLine($"\t\t\t\t<td><a href=\"#enum_{enumType.NameInCamelCase}\">{col.DataType}</a></td>");
-        //        else sb.AppendLine($"\t\t\t\t<td>{col.DataType}</td>");
-        //        sb.AppendLine($"\t\t\t\t<td class=\"centered\">{(col.IsRequired ? "&check;" : "&nbsp;")}</td>");
-        //        sb.AppendLine($"\t\t\t\t<td>{col.ValidationRules}</td>");
-        //        if (fkRef != null)
-        //            sb.AppendLine($"\t\t\t\t<td><a href=\"#tbl_{fkRef.OtherTable.NameInCamelCase}\">{fkRef.OtherTable.Name}</a></td>");
-        //        else
-        //            sb.AppendLine($"\t\t\t\t<td>&nbsp;</td>");
-        //        sb.AppendLine($"\t\t\t\t<td>{col.Comments}</td>");
-        //        sb.AppendLine($"\t\t\t</tr>");
-        //    }
-        //    sb.AppendLine($"\t\t</tbody>")
-        //        .AppendLine($"\t</table>");
-
-        //    if (tbl.Data?.Rows?.Count > 0)
-        //    {
-        //        sb.AppendLine($"\t<h3>Seed Data</h3>")
-        //            .AppendLine($"\t<table>")
-        //            .AppendLine($"\t\t<thead>")
-        //            .AppendLine($"\t\t\t<tr>");
-        //        foreach (DataColumn col in tbl.Data?.Columns)
-        //        {
-        //            sb.AppendLine($"\t\t\t\t<th>{col.ColumnName ?? col.Caption}</th>");
-        //        }
-        //        sb.AppendLine($"\t\t\t</tr>")
-        //            .AppendLine($"\t\t</thead>")
-        //            .AppendLine($"\t\t<tbody>");
-        //        foreach (DataRow row in tbl.Data?.Rows)
-        //        {
-        //            sb.AppendLine($"\t\t\t<tr>");
-        //            foreach (DataColumn col in tbl.Data?.Columns)
-        //            {
-        //                var objVal = row[col];
-        //                var val = objVal?.ToString() ?? "";
-        //                if (!(objVal is string) && objVal != DBNull.Value)
-        //                {
-        //                    if (objVal is string[])
-        //                        val = string.Join(", ", (objVal as string[]));
-        //                }
-        //                sb.AppendLine($"\t\t\t\t<td>{HttpUtility.HtmlEncode(val)}</td>");
-        //            }
-        //            sb.AppendLine($"\t\t\t</tr>");
-        //        }
-        //        sb.AppendLine($"\t\t</tbody>")
-        //            .AppendLine($"\t</table>");
-        //    }
-
-        //    sb.AppendLine($"</section>");
-        //    return sb.ToString();
-        //}
-
-        //protected static string GenerateViewReport(ViewInfo vw, DatabaseInfo dbInfo)
-        //{
-        //    var sb = new StringBuilder();
-        //    sb.AppendLine($"<section id=\"vw_{vw.NameInCamelCase}\" class=\"table\">")
-        //        .AppendLine($"\t<h2>{vw.NameInPascalCase} ({vw.Name})</h2>")
-        //        .AppendLine($"\t<p>{vw.Comments}</p>")
-        //        .AppendLine($"\t<table>")
-        //        .AppendLine($"\t\t<thead>")
-        //        .AppendLine($"\t\t\t<tr>")
-        //        .AppendLine($"\t\t\t\t<th>&nbsp;</th><th>Column</th><th>Data Type</th><th>Required?</th><th>Description</th>")
-        //        .AppendLine($"\t\t\t</tr>")
-        //        .AppendLine($"\t\t</thead>")
-        //        .AppendLine($"\t\t<tbody>");
-        //    var first = true;
-        //    foreach (var col in vw.Columns)
-        //    {
-        //        var enumType = dbInfo.Enums.FirstOrDefault(x => x.Name == col.DataType);
-        //        sb.AppendLine($"\t\t\t<tr>");
-
-        //        sb.Append($"\t\t\t\t<td class=\"centered column-icon\">");
-        //        if (first) sb.Append(" <span title=\"unique\">&#10052;</span>");
-        //        sb.AppendLine($" </td>");
-
-        //        sb.AppendLine($"\t\t\t\t<td>{col.Name}</td>");
-        //        if (dbInfo.Enums.Any(x => x.Name == col.DataType)) sb.AppendLine($"\t\t\t\t<td><a href=\"#enum_{enumType.NameInCamelCase}\">{col.DataType}</a></td>");
-        //        else sb.AppendLine($"\t\t\t\t<td>{col.DataType}</td>");
-        //        sb.AppendLine($"\t\t\t\t<td class=\"centered\">{(col.IsRequired ? "&check;" : "&nbsp;")}</td>");
-        //        sb.AppendLine($"\t\t\t\t<td>{col.Comments}</td>");
-        //        sb.AppendLine($"\t\t\t</tr>");
-        //        first = false;
-        //    }
-        //    sb.AppendLine($"\t\t</tbody>")
-        //        .AppendLine($"\t</table>");
-
-        //    sb.Append($"\t<div class=\"code\"><pre>").Append(HttpUtility.HtmlEncode(vw.Definition))
-        //        .AppendLine($"\t</pre></div>");
-
-        //    sb.AppendLine($"</section>");
-        //    return sb.ToString();
-        //}
-
-        //protected static string GenerateEnumConstraintReport(EnumInfo enx, DatabaseInfo dbInfo)
-        //{
-        //    var sb = new StringBuilder();
-        //    sb.AppendLine($"<section id=\"enum_{enx.NameInCamelCase}\" class=\"table\">")
-        //        .AppendLine($"\t<h2>{enx.Name}</h2>")
-        //        .AppendLine($"\t<p>{enx.Comments}</p>");
-        //    if (enx.Values?.Count > 0)
-        //    {
-        //        sb.AppendLine($"\t<table>")
-        //            .AppendLine($"\t\t<thead>")
-        //            .AppendLine($"\t\t\t<tr>")
-        //            .AppendLine($"\t\t\t\t<th>Value</th>")
-        //            .AppendLine($"\t\t\t</tr>")
-        //            .AppendLine($"\t\t</thead>")
-        //            .AppendLine($"\t\t<tbody>");
-        //        foreach (var val in enx.Values)
-        //        {
-        //            sb.AppendLine($"\t\t\t<tr>");
-        //            sb.AppendLine($"\t\t\t\t<td>{HttpUtility.HtmlEncode(val)}</td>");
-        //            sb.AppendLine($"\t\t\t</tr>");
-        //        }
-        //        sb.AppendLine($"\t\t</tbody>")
-        //            .AppendLine($"\t</table>");
-        //    }
-
-        //    sb.AppendLine($"</section>");
-        //    return sb.ToString();
-        //}
 
         #region CSS
         public const string CssBlock = @"
@@ -905,13 +761,21 @@ namespace CSTG.CodeAnalyzer.Reports
             white-space: nowrap;
         }
 
+        .overflow-wrap {
+            overflow-wrap: anywhere; 
+        }
+
+        .break-word {
+            overflow-wrap: break-word; 
+            
+        }
+
         .centered {
             text-align: center;
             white-space: nowrap;
         }
 
         .column-icon {
-            cursor: hand;
             cursor: pointer;
         }
 
@@ -933,7 +797,9 @@ namespace CSTG.CodeAnalyzer.Reports
             margin: 25px 0;
             font-size: 0.9em;
             font-family: sans-serif;
-            min-width: 400px;
+            /*min-width: 400px;
+            max-width: 1075px;*/
+            width: 100%;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
         }
 
@@ -1027,6 +893,12 @@ namespace CSTG.CodeAnalyzer.Reports
         .error-tag {
           background: red;
           color: white;
+        }
+        @media print {
+            .pagebreak {
+                clear: both;
+                page-break-after: always;
+            }
         }
     </style>";
         #endregion

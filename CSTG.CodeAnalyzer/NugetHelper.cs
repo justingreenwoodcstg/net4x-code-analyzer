@@ -46,7 +46,7 @@ namespace CSTG.CodeAnalyzer
             //NuGet.Protocol.Core.Types.PackageUpdateResource
             //NuGet.Protocol.Core.Types.ListResource
 
-            var matchingMetaData = packageMetaData.FirstOrDefault(metaData => metaData.Identity.Version == NuGetVersion.Parse(package.Version.ToString()));
+            var matchingMetaData = packageMetaData.FirstOrDefault(metaData => metaData.Identity.Version == (package.Version != null ? NuGetVersion.Parse(package.Version.ToString()) : null));
             if (matchingMetaData != null)
             {
                 package.VersionDetails = Map(matchingMetaData);

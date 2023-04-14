@@ -21,18 +21,26 @@ namespace CSTG.CodeAnalyzer
         {
             if (args.Length == 0)
             {
-                //AnalyzeFolder("FIXED_IN_INBIZ", "in-inbiz-fixed", @"C:\git-repos\IN_INBIZ");
-                //AnalyzeFolder("FIXED_IN_BSD", "in-bsd-fixed", @"C:\git-repos\IN_BSD");
-                //AnalyzeFolder("IN_INBIZ", "in-inbiz-untouched", @"C:\projects\state-of-indiana\untouched\IN_INBIZ");
-                //AnalyzeFolder("IN_BSD", "in-bsd-untouched", @"C:\projects\state-of-indiana\untouched\IN_BSD");
-                //AnalyzeFolder("IN_WebService_BSDService", "in-bsdsvc-untouched", @"C:\projects\state-of-indiana\untouched\IN_WebService_BSDService");
-                //AnalyzeFolder("IN_AdminApp_SOS", "in-admin-sos-untouched", @"C:\projects\state-of-indiana\untouched\IN_AdminApp_SOS");
-                //AnalyzeFolder("IN_AdminApp_DOR", "in-admin-dor-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DOR");
-                //AnalyzeFolder("IN_AdminApp_DWD", "in-admin-dwd-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DWD");
-                //AnalyzeFolder("IN_AdminApp_IPLA", "in-admin-ipla-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_IPLA");
-                //AnalyzeFolder("Everything", "everything-untouched", @"C:\projects\state-of-indiana\untouched");
+                AnalyzeFolder("FIXED_IN_INBIZ", "in-inbiz-fixed", @"C:\git-repos\IN_INBIZ", false);
+                AnalyzeFolder("FIXED_IN_BSD", "in-bsd-fixed", @"C:\git-repos\IN_BSD", false);
+                AnalyzeFolder("FIXED_IN_WebService_BSDService", "in-bsdsvc-fixed", @"C:\git-repos\IN_WebService_BSDService", false);
+                AnalyzeFolder("FIXED_IN_Dealers_DLS", "in-dealers-dls-fixed", @"C:\git-repos\IN_Dealers_DLS", false);
+
+                AnalyzeFolder("IN_INBIZ", "in-inbiz-untouched", @"C:\projects\state-of-indiana\untouched\IN_INBIZ");
+                AnalyzeFolder("IN_BSD", "in-bsd-untouched", @"C:\projects\state-of-indiana\untouched\IN_BSD");
+                AnalyzeFolder("IN_WebService_BSDService", "in-bsdsvc-untouched", @"C:\projects\state-of-indiana\untouched\IN_WebService_BSDService");
+                AnalyzeFolder("IN_Dealers_DLS", "in-dealers-dls-untouched", @"C:\projects\state-of-indiana\untouched\IN_Dealers_DLS");
+                AnalyzeFolder("IN_AdminApp_SOS", "in-admin-sos-untouched", @"C:\projects\state-of-indiana\untouched\IN_AdminApp_SOS");
+                AnalyzeFolder("IN_AdminApp_DOR", "in-admin-dor-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DOR");
+                AnalyzeFolder("IN_AdminApp_DWD", "in-admin-dwd-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_DWD");
+                AnalyzeFolder("IN_AdminApp_IPLA", "in-admin-ipla-untouched", @"C:\projects\state-of-indiana\untouched\IN_OtherAdminApps_DOD-IPLA-DWD\IN_AdminApp_IPLA");
+
+                AnalyzeFolder("Everything", "everything-untouched", @"C:\projects\state-of-indiana\untouched");
+
+
             }
             //Console.ReadKey();
+
             var currentDir = new DirectoryInfo(Directory.GetCurrentDirectory());
             var files = currentDir.GetFiles("*.type-details.json");
             foreach (var file in files)
@@ -43,11 +51,12 @@ namespace CSTG.CodeAnalyzer
                 var reportHtml = ReflectionReportGenerator.GenerateHtml(reportData);
                 File.WriteAllText(title + "-api-details.html", reportHtml);
             }
+
         }
 
 
 
-        public static void AnalyzeFolder(string title, string filePrefix, string directory)
+        public static void AnalyzeFolder(string title, string filePrefix, string directory, bool includeOrphans = true)
         { 
             var rootDirectory = new DirectoryInfo(directory);
             var jsonDataFileName = filePrefix + "-code-analysis.json";
@@ -68,14 +77,18 @@ namespace CSTG.CodeAnalyzer
             {
                 // deal with project files!
                 var projectFiles = new List<ProjectFile>();
-                var matchingFiles = Utility.RecursiveFileSearch(rootDirectory, extensions: new string[] { ".csproj", ".sqlproj" }, skipDirs: new string[] { "bin", "obj", "packages", "Libraries", ".git" });
+                var matchingFiles = Utility.RecursiveFileSearch(rootDirectory, extensions: new string[] { ".csproj", ".sqlproj", ".rptproj" }, skipDirs: new string[] { "bin", "obj", "packages", "Libraries", ".git" });
                 foreach (var projFile in matchingFiles)
                 {
                     var projectFile = ProjectFileUtil.Read(projFile);
 
                     foreach (var nugetPackage in projectFile.NugetPackages)
                     {
-                        NugetHelper.LookUpPackage(nugetPackage).Wait();
+                        try
+                        {
+                            NugetHelper.LookUpPackage(nugetPackage).Wait();
+                        }
+                        catch { }
                     }
                     projectFiles.Add(projectFile);
                 }
@@ -89,19 +102,21 @@ namespace CSTG.CodeAnalyzer
 
                     foreach (var pref in solutionfile.Projects)
                     {
-                        var match = projectFiles.FirstOrDefault(xx => xx.ProjectId == pref.ProjectId) ?? projectFiles.FirstOrDefault(xx => xx.File == pref.ProjectFile);
+                        //if (pref.ProjectFile?.Extension == ".rptproj") Debugger.Break();
+
+                        var match = projectFiles.FirstOrDefault(xx => xx.ProjectId == pref.ProjectId) ?? projectFiles.FirstOrDefault(xx => xx.File.FullName == pref.ProjectFile?.FullName);
                         if (match != null)
                         {
                             if (match.ProjectId != pref.ProjectId)
                             {
-                                Debugger.Break();
+                                //Debugger.Break();
                             }
                             if (!match.SolutionFiles.Contains(solutionfile.File)) match.SolutionFiles.Add(solutionfile.File);
                             if (pref.ProjectFile == null) pref.ProjectFile = match.File;
                         }
                         else
                         {
-
+                            //Debugger.Break();
                         }
                     }
                     solutionFiles.Add(solutionfile);
@@ -112,7 +127,7 @@ namespace CSTG.CodeAnalyzer
                 {
                     ReportTitle = title,
                     Solutions = solutionFiles,
-                    Projects = projectFiles
+                    Projects = projectFiles.Where(p => p.SolutionFiles.Count > 0 || includeOrphans).ToList()
                 };
 
                 AssemblyUtil.EnrichHarvestedDataWithAssemblies(rootDirectory, data);

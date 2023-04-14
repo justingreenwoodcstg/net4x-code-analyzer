@@ -115,7 +115,7 @@ namespace CSTG.CodeAnalyzer
                         }
                     }
                     Console.WriteLine($"END: {matchingAssembly.GetName().Name}");
-                    System.Console.ReadKey();
+                    //System.Console.ReadKey();
                 }
             }
         }

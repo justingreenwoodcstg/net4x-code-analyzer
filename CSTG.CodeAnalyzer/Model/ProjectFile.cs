@@ -63,6 +63,7 @@ namespace CSTG.CodeAnalyzer.Model
         public bool IsWebProject { get; set; } = false;
         public bool IsTestProject { get; set; } = false;
         public bool IsDatabaseProject => OutputType?.ToLower() == "database";
+        public bool IsReportProject => OutputType?.ToLower() == "report";
 
         public string ProjectType => IsWebProject ? "Web" : (IsTestProject ? "UnitTest" : OutputType);
 
@@ -93,7 +94,11 @@ namespace CSTG.CodeAnalyzer.Model
         StyleSheet,
         CompiledExecutable,
         CompiledLibrary,
+        ShockwaveFlash,
+        MicrosoftInstallerPackage,
+        CompiledHtmlHelp,
         ConfigFile,
+        SettingsFile,
         Document,
         XmlPublishProfile,
         Text,
@@ -105,6 +110,14 @@ namespace CSTG.CodeAnalyzer.Model
         Resource,
         SourceMap,
         PerpetuumSoftReport,
+        SSRSReport,
+        SSRSDataSource,
+        SSRSDataSet,
+        EntityDataModel,        
+        StoreSchemaDefinitionLanguage,
+        MappingSpecificationLanguage,
+        ConceptualSchemaDefinitionLanguage,
+
         CenuityReport,  //crpt
         CenuityMTC, //cmtc
         CenuityWML, //cwml
@@ -129,7 +142,7 @@ namespace CSTG.CodeAnalyzer.Model
         [JsonProperty(propertyName:"Version")]
         public string VersionString
         {
-            get => this.Version.ToString();
+            get => this.Version?.ToString();
             set => this.Version = string.IsNullOrWhiteSpace(value) ? null : Version.Parse(value);
         }
         public string TargetFramework { get; set; }
